@@ -9,7 +9,7 @@ Google database openimage v4
 NOTE
 ==================================
 
-
+---------------------------------------------------
 First generic test method on tryn.fit - 17/06/2020:
 ---------------------------------------------------
 
@@ -36,5 +36,29 @@ Most websites have links to contact, faq, whishlist, login ... so the proposed s
 
  - Require large list of words to be efficient.
 
+
+---------------------------------------------
+Second generic test on tryn.fit - 18/06/2020:
+---------------------------------------------
+
+This test is to identify the nature of the page we are scraping, in this project we have only two pages that we are interested in, home page : where there is a list of products without much details, and product page where there is the details about one product, and lists of other related products ( in most sites ).
+
+This test takes a csv file as input, the rows represents the sites that we want to crawl, and each rows have two links, the first link represent a home link, and the second link represent a product page link of any product. 
+
+NOTE : For the home page, it is not necessarily the home page like "https://tryn.fit/", 
+------ the best options for the home page, is a page that share its form and design with so many other pages, for example : "https://tryn.fit/categorie-produit/chemises-homme/"
+
+
+How it works : 
+--------------
+1 - the program gets the page of the home page, then extract all the classes in the home page.
+2 - Then it gets the page of the product page, and extract all the classes in the product pages.
+3 - we extract the classes that may be specific only to the home page ( classes of home page - classes of product page)
+4 - we extract the classes that may be specific only to the product pages ( classes of product pages - classes of home page )
+5 - To identify if a page is either a home or product page, we extract the classes in that page,
+then we match the classes with the lists of home and product page.
+6 - if the result of the match in both pages is less then MIN_RATIO then the page is neither a product nor a home page.
+
+This method has worked perfectly on tryn.fit
 
 
