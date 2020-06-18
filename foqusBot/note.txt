@@ -1,0 +1,40 @@
+apify
+micro services python
+piplines dans Azure
+
+Google database openimage v4 
+
+
+==================================
+NOTE
+==================================
+
+
+First generic test method on tryn.fit - 17/06/2020:
+---------------------------------------------------
+
+First test on extracting links and identifying product and page link by the bot by itself, the method consists of : 
+
+1 - Remove header and footer element, since they contain usually links related to website contact, faq ... 
+2 - Get product links by extracting the element "a" that has "img" as a child, this method works on "tryn.fit"
+3 - Get other links, and treat them as page links.
+4 - Call the product page and check if it is really a product page, the verification of product page is based on the presence of a class ( this is only for tryn.fit ).
+5 - if it is a product page, then extract data.
+6 - not a product page, then yield a request to be treated as a normal page.
+
+The PROBLEM that we encountered in this approach is that the bot keep clicking on link of format ".../?add_to_wishlist=1233", this link is used to add an item to "wish list", so a link that neither page of product or set of products.
+
+
+Proposed SOLUTION : 
+===================
+
+Most websites have links to contact, faq, whishlist, login ... so the proposed solution is to form a list of common words that are used by websites to access those different section, and then get the links that doesn't contain any words.
+
+ + Will filter many links from many websites, as they use the same words.
+
+ - A change in the website link will make this feature useless.
+
+ - Require large list of words to be efficient.
+
+
+
