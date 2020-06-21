@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import os
 import scrapy
 import csv
 from scrapy.http import Request
@@ -8,6 +9,10 @@ from foqusBot.common_words import common_words
 
 # MIN_RATIO is the min ratio where the page is still identified as home or product page
 MIN_RATIO = 0.05
+
+# UPDATE_RATIO : if the ratio of classes is more then those ratio then we are pretty sure about the nature of the page,
+# so we add the classes found here to the list of the specified nature
+UPDATE_RATIO = 0.7
 
 class GeneralSpider(scrapy.Spider):
     name = 'generalFoqus'
@@ -50,6 +55,7 @@ class GeneralSpider(scrapy.Spider):
     ======
     '''
     def getHomeClasses(self, response):
+        response = self.cleanResponse(response)
         classes = response.xpath("//@class").getall()
         # variable that will contain all the class names
         final_classes = set()
@@ -71,6 +77,7 @@ class GeneralSpider(scrapy.Spider):
     ======
     '''
     def getProductClasses(self, response):
+        response = self.cleanResponse(response)
         classes = response.xpath("//@class").getall()
         final_classes = set()
 
@@ -93,12 +100,20 @@ class GeneralSpider(scrapy.Spider):
 
     JUST FOR TEST : it will return a dict describing the state of the page
     =============
+
+    If both of the ratios are greater then UPDATE_RATIO then we consider that the page is neither a home page or product page
+
+    If home ratio is greater then UPDATE_RATIO then we add the classes of the page to the home classes
+    If product ratio is greater then UPDATE_RATIO then we add the classes of the page to the product classes
     
     it will return a tuple (is_home, is_product)
     
     '''
     def identifyPage(self, response):
         home_classes, product_classes = self.url_classes[self.getUrlBase(response.url)]
+
+        print("\n INFOO, home_classes : ", len(home_classes), "      product_classes : ", len(product_classes), "\n")
+        print("intersection : ", len(home_classes.intersection(product_classes)))
 
         # get the classes presented in the page
         classes = response.xpath("//@class").getall()
@@ -121,6 +136,22 @@ class GeneralSpider(scrapy.Spider):
         # if the two ratio are smaller then MIN_RATIO, then the page is neither a product nor a home page
         if( (ratio_home < MIN_RATIO) and (ratio_product < MIN_RATIO)):
             is_home = is_product = False
+
+        # if the page is so identical to the two pages, then we will consider that it is neither a home nor a product page
+        if( ratio_home > UPDATE_RATIO and ratio_product > UPDATE_RATIO):
+            is_home = is_product = False
+        # if it is only so identical to home page
+        elif (ratio_home > UPDATE_RATIO):
+            home_classes = home_classes.union(page_classes - product_classes)
+        # if it is only identical to home page
+        elif (ratio_product > UPDATE_RATIO):
+            product_classes = product_classes.union(page_classes - home_classes)
+
+        #intersection = home_classes.intersection(product_classes)
+        #home_classes = home_classes - intersection
+        #product_classes = product_classes - intersection
+        self.url_classes[self.getUrlBase(response.url)] = [home_classes, product_classes]
+        
         
         return({"url": response.url ,"ratio_home": ratio_home, "ratio_product": ratio_product,
                 "is_home":is_home, "is_product":is_product})
@@ -129,6 +160,7 @@ class GeneralSpider(scrapy.Spider):
     The default method that is called after yield a request to a page
     '''
     def parse(self, response):
+        response = self.cleanResponse(response)
         infos = self.identifyPage(response)
         yield infos
 
@@ -157,9 +189,9 @@ class GeneralSpider(scrapy.Spider):
         
         
     """
-    ===========================================================
-        This part is for identifying pages and filtering pages
-    ===========================================================
+    =================================================================================
+        This part is for identifying pages and filtering pages And Additional method
+    =================================================================================
     """
 
     """
@@ -183,6 +215,8 @@ class GeneralSpider(scrapy.Spider):
     def getPageLinks(self, response):
         links = response.xpath(self.getXpathForLinks(response)).getall()
         links = {response.urljoin(x) for x in links if x not in self.visited_urls}
+        # filter the links, accept who has same domain and a valid extension
+        links = {x for x in links if ((self.getUrlBase(response.url) in urlparse(x).netloc) and self.isValidUrl(x))}
         return links
 
     
@@ -191,10 +225,13 @@ class GeneralSpider(scrapy.Spider):
     NOTE : links maybe relative so shouldn't check for base url before the join
     """
     def getXpathForLinks(self, response):
-        xpath_query = "//a[contains(@href, '" + self.getUrlBase(response.url) + "')"
+        xpath_query = "//a["
         for word in common_words:
-            xpath_query += " and not(contains(@href,'" + word + "'))"
-
+            xpath_query += " not(contains(@href,'" + word + "')) and"
+        # eliminate the last "and"
+        if "and" in xpath_query:
+            xpath_query = xpath_query[:-3]
+            
         xpath_query += "]/@href"
         return xpath_query
 
@@ -206,3 +243,21 @@ class GeneralSpider(scrapy.Spider):
         base = urlparse(url).netloc
         base = ".".join(base.split(".")[-2:])
         return base
+
+
+    """
+    
+    """
+    def isValidUrl(self, url):
+        # valid extension for web page
+        try:
+            accepted_extensions = [".php", ".html", ".htm", ""]
+            url_path = urlparse(url).path
+            filename, extension = os.path.splitext(url_path)
+            return extension in accepted_extensions
+        except Exception as e:
+            print("\n /\/\/\/\/\/\/\/\/\/\/\/\/\ Error /\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\ \n")
+            print(e)
+            print("\n /\/\/\/\/\/\/\/\/\/\/\/\/\ Error /\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\ \n")
+            
+            return False
