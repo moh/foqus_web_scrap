@@ -5,21 +5,20 @@ import csv
 from scrapy.http import Request
 from urllib.parse import urlparse
 # common_words contain words used frequently by websites
-from foqusBot.common_words import common_words
+from foqusBot.common_words import *
 
 # MIN_RATIO is the min ratio where the page is still identified as home or product page
-MIN_RATIO = 0.05
+MIN_RATIO = 0.2
 
 # UPDATE_RATIO : if the ratio of classes is more then those ratio then we are pretty sure about the nature of the page,
 # so we add the classes found here to the list of the specified nature
-UPDATE_RATIO = 0.7
+UPDATE_RATIO = 0.8
 
 class GeneralSpider(scrapy.Spider):
     name = 'generalFoqus'
 
     '''
-    url_products: dict that have keys the base of the website, and value the link to a
-    product page ( in the csv ) from this site
+    url_home_products: dict that have keys the base of the website, and value a list of links to the home page and product page.
 
     url_classes : dict that have keys the base of the website, and value two lists, that
     represents the list of class of home page, and the list of class of product page
@@ -63,8 +62,8 @@ class GeneralSpider(scrapy.Spider):
         for class_names in classes:
             final_classes = final_classes.union(set(class_names.split(" ")))
 
+        # add the home classes to the dictionary
         self.url_classes[self.getUrlBase(response.url)] = [final_classes, set()]
-        self.resp_base = response.url
 
         yield Request(self.url_home_products[self.getUrlBase(response.url)][1],
                       callback = self.getProductClasses)
@@ -80,7 +79,7 @@ class GeneralSpider(scrapy.Spider):
         response = self.cleanResponse(response)
         classes = response.xpath("//@class").getall()
         final_classes = set()
-
+        
         for class_names in classes:
             final_classes = final_classes.union(set(class_names.split(" ")))
 
@@ -91,30 +90,33 @@ class GeneralSpider(scrapy.Spider):
 
         self.url_classes[self.getUrlBase(response.url)] = [home_classes, product_classes]
 
+        
         # call the home page to analyse links
+        # yield {"home_classes" : home_classes, "product_classes" : product_classes, "product_all" : final_classes, "home_all":homePageClasses}
         yield Request(self.url_home_products[self.getUrlBase(response.url)][0], dont_filter = True)
-
+        # yield self.getProductInfo(response, product_classes)
 
     '''
     This method is to identify the nature of the page, wether it is a home page or product pages.
 
-    JUST FOR TEST : it will return a dict describing the state of the page
-    =============
-
+    
     If both of the ratios are greater then UPDATE_RATIO then we consider that the page is neither a home page or product page
 
     If home ratio is greater then UPDATE_RATIO then we add the classes of the page to the home classes
     If product ratio is greater then UPDATE_RATIO then we add the classes of the page to the product classes
     
-    it will return a tuple (is_home, is_product)
+    it will return a dictionnary ::: product_shared: classes that are shared with product classes,
+    home_shared : classes that are shared with home classes, is_home : if it is a home page,
+    is_product: if it is a product page.
     
     '''
     def identifyPage(self, response):
+        response = self.cleanResponse(response)
         home_classes, product_classes = self.url_classes[self.getUrlBase(response.url)]
 
-        print("\n INFOO, home_classes : ", len(home_classes), "      product_classes : ", len(product_classes), "\n")
-        print("intersection : ", len(home_classes.intersection(product_classes)))
-
+        #   for test
+        print("\n home classes : ", len(home_classes), "\n product classes : ", len(product_classes))
+        #
         # get the classes presented in the page
         classes = response.xpath("//@class").getall()
         page_classes = set()
@@ -123,12 +125,12 @@ class GeneralSpider(scrapy.Spider):
             page_classes = page_classes.union(set(class_names.split(" ")))
 
         # number of classes in common with home page
-        home_shared = len(page_classes.intersection(home_classes))
+        home_shared = page_classes.intersection(home_classes)
         # number of classes in common with product page
-        product_shared = len(page_classes.intersection(product_classes))
+        product_shared = page_classes.intersection(product_classes)
 
-        ratio_home = home_shared / len(home_classes)
-        ratio_product = product_shared / len(product_classes)
+        ratio_home = len(home_shared) / len(home_classes)
+        ratio_product = len(product_shared) / len(product_classes)
 
         is_home = ratio_home > ratio_product
         is_product = ratio_home < ratio_product
@@ -137,9 +139,6 @@ class GeneralSpider(scrapy.Spider):
         if( (ratio_home < MIN_RATIO) and (ratio_product < MIN_RATIO)):
             is_home = is_product = False
 
-        # if the page is so identical to the two pages, then we will consider that it is neither a home nor a product page
-        if( ratio_home > UPDATE_RATIO and ratio_product > UPDATE_RATIO):
-            is_home = is_product = False
         # if it is only so identical to home page
         elif (ratio_home > UPDATE_RATIO):
             home_classes = home_classes.union(page_classes - product_classes)
@@ -147,44 +146,66 @@ class GeneralSpider(scrapy.Spider):
         elif (ratio_product > UPDATE_RATIO):
             product_classes = product_classes.union(page_classes - home_classes)
 
-        #intersection = home_classes.intersection(product_classes)
-        #home_classes = home_classes - intersection
-        #product_classes = product_classes - intersection
+
         self.url_classes[self.getUrlBase(response.url)] = [home_classes, product_classes]
         
         
-        return({"url": response.url ,"ratio_home": ratio_home, "ratio_product": ratio_product,
-                "is_home":is_home, "is_product":is_product})
+        #return({"product_shared": product_shared, "home_shared" : home_shared,"is_home":is_home, "is_product":is_product})
+        return ({"url" : response.url,"is_home":is_home, "is_product":is_product, "home_ratio":ratio_home, "product_ratio" : ratio_product})
 
     '''
     The default method that is called after yield a request to a page
     '''
     def parse(self, response):
-        response = self.cleanResponse(response)
+        #response = self.cleanResponse(response)
         infos = self.identifyPage(response)
-        yield infos
+        yield infos # delete after 
+        # the page is neither a home nor a product
+        if (not(infos["is_home"]) and not(infos["is_product"])):
+            return
+        
+        '''
 
+        elif infos["is_product"]:
+            print("url is a PRODUCT : ", response.url)
+            yield self.getProductInfo(response, infos["product_shared"])
+        else:
+            print("url is a PAGEEE  :", response.url)
+        '''
+
+        
         links = self.getPageLinks(response)
         for link in links:
             self.visited_urls.add(link)
             yield Request(link)
 
-    def parse_item(self, response):
-        response = self.cleanResponse(response)
-        
-        # if this page is not a product page then yield request with callback = self.parse
-        product = self.isProductPage(response)
-        if not(product):
-            yield scrapy.Request(response.url, self.parse)
-            return
-        
-        l = ItemLoader(item = FoqusbotItem(), selector = product)
-        l.add_css("price", ".price", MapCompose(remove_tags))
-        l.add_css("title", ".product_title::text")
-        l.add_css("category", ".posted_in a::text")
-        l.add_xpath("image", "//*[contains(concat(' ',normalize-space(@class),' '),' top-content ')]//img/@src", TakeFirst())
-        l.add_value("url", response.url)
-        yield l.load_item()
+
+    def getProductInfo(self, response, product_shared):
+        product_classes = [x for x in product_shared if self.shareWithList(x, product_identifiers)]
+        product_classes = [x for x in product_classes if len(response.css("." + x)) == 1]
+
+        gallery_classes = [x for x in product_classes if self.shareWithList(x, images_identifiers)]
+        infos_classes = [x for x in product_classes if self.shareWithList(x, infos_identifiers)]
+        # title_classes = [x for x in product_classes if "title" in x]
+        '''
+        imgs = set()
+        for classe in gallery_classes:
+            local_imgs = set(response.css("." + classe)[0].xpath('descendant::img/@src').getall())
+            imgs = imgs.union(local_imgs)
+            
+        titles = [response.css("." + x).xpath("text()").get() for x in title_classes]
+        price = []
+        for classe in infos_classes:
+            # select all classes inside the element of class = classe
+            try:
+                cls = response.css("." + classe)[0].xpath("descendant::*/@class").getall()
+                cls = [x for x in cls if "price" in x.lower()][0]
+                price.append(response.css("." + cls)[0].xpath("descendant::text()").getall())
+            except:
+                pass
+        return {"url" : response.url,"imgs" : list(imgs), "titles" : titles, "price" : price}
+        '''
+        return {"url" : response.url, "product_classes" : product_classes, "product_shared" : product_shared , "image_classes" : gallery_classes, "infos_classes" : infos_classes}
         
         
         
@@ -199,15 +220,27 @@ class GeneralSpider(scrapy.Spider):
     as most of the links in those two sections aren't related to products.
     """
     def cleanResponse(self, response):
+        copy_response = response.copy()
+        '''
         try:
             # remove header
-            response.css("header")[0].remove()
-            # remove Footer
-            response.css("footer")[0].remove()
+            headers = copy_response.css("header")
+            for header in headers:
+                header.remove()
+
         except Exception as e:
             pass
-        
-        return response
+
+        try:
+            # remove footer
+            footers = copy_response.css("footer")
+            for footer in footers:
+                footer.remove()
+
+        except Exception as e:
+            pass
+        '''
+        return copy_response
 
     '''
     get the links presented in the page
@@ -216,7 +249,7 @@ class GeneralSpider(scrapy.Spider):
         links = response.xpath(self.getXpathForLinks(response)).getall()
         links = {response.urljoin(x) for x in links if x not in self.visited_urls}
         # filter the links, accept who has same domain and a valid extension
-        links = {x for x in links if ((self.getUrlBase(response.url) in urlparse(x).netloc) and self.isValidUrl(x))}
+        links = {x for x in links if ((self.getUrlBase(response.url) in self.getUrlNetloc(x)) and self.isValidUrl(x))}
         return links
 
     
@@ -244,6 +277,21 @@ class GeneralSpider(scrapy.Spider):
         base = ".".join(base.split(".")[-2:])
         return base
 
+    """
+    getUrlNetloc get the net location from the url
+    """
+    def getUrlNetloc(self, url):
+        return urlparse(url).netloc
+        
+
+    """
+    A function that check if we had common words in class_name and words in word_list.
+    """
+    def shareWithList(self, class_name, word_list):
+        for x in word_list:
+            if x in class_name.lower():
+                return True
+        return False
 
     """
     

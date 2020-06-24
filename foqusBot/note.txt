@@ -60,5 +60,8 @@ then we match the classes with the lists of home and product page.
 6 - if the result of the match in both pages is less then MIN_RATIO then the page is neither a product nor a home page.
 
 This method has worked perfectly on tryn.fit
+Worked on many sites.
 
+
+NOTE TO update : To identify the product page, we should not only take into account the url base, but ---------------- also the whole netloc.
 

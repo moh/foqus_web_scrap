@@ -3,3 +3,17 @@ common_words = ["contact", "faq", "wishlist", "wish_list", "my-account", "login"
                     "privacy", "policy", "customer-service", "product-support", "terms-conditions", "about-us", "setting",
                 "add-to-cart", "remove_item", "help", "customer", "product-reviews"
                 ]
+
+
+# list of words to identify the classes related to product
+product_identifiers = ["product", "produit"]
+
+
+# list of words to identify classes related to product images
+images_identifiers = ["image", "gallery", "img", "ima", "thumb"]
+
+# list of words to identify classes related to product informations
+infos_identifiers = ["details", "description", "info", "information"]
+
+# list of words to identify classes related to product prices
+prices_identifiers = ["price", "prix"]
