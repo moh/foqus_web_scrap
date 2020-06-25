@@ -4,6 +4,7 @@ import scrapy
 import csv
 from scrapy.http import Request
 from urllib.parse import urlparse
+from w3lib.html import remove_tags
 # common_words contain words used frequently by websites
 from foqusBot.common_words import *
 
@@ -29,8 +30,9 @@ class GeneralSpider(scrapy.Spider):
         super(GeneralSpider, self).__init__(*a, **kw)
         self.url_home_products = dict()
         self.url_classes = dict()
-        self.visited_urls = set()
-        self.resp_base = None
+        self.visited_urls = dict()
+        self.order = 0
+        
 
     '''
     Here we override the method start_requests to start with the request of the home page,
@@ -44,6 +46,7 @@ class GeneralSpider(scrapy.Spider):
                 # store the home and product page in the dict
                 self.url_home_products[self.getUrlBase(line[0])] = line
                 yield Request(line[0], callback = self.getHomeClasses)
+                
 
 
     '''
@@ -54,7 +57,6 @@ class GeneralSpider(scrapy.Spider):
     ======
     '''
     def getHomeClasses(self, response):
-        response = self.cleanResponse(response)
         classes = response.xpath("//@class").getall()
         # variable that will contain all the class names
         final_classes = set()
@@ -76,7 +78,6 @@ class GeneralSpider(scrapy.Spider):
     ======
     '''
     def getProductClasses(self, response):
-        response = self.cleanResponse(response)
         classes = response.xpath("//@class").getall()
         final_classes = set()
         
@@ -89,12 +90,40 @@ class GeneralSpider(scrapy.Spider):
         home_classes = homePageClasses - final_classes
 
         self.url_classes[self.getUrlBase(response.url)] = [home_classes, product_classes]
-
         
         # call the home page to analyse links
-        # yield {"home_classes" : home_classes, "product_classes" : product_classes, "product_all" : final_classes, "home_all":homePageClasses}
         yield Request(self.url_home_products[self.getUrlBase(response.url)][0], dont_filter = True)
-        # yield self.getProductInfo(response, product_classes)
+        
+
+    '''
+    The default method that is called after yield a request to a page
+    '''
+    def parse(self, response):
+        infos = self.identifyPage(response)
+        
+        # the page is neither a home nor a product
+        if (not(infos["is_home"]) and not(infos["is_product"])):
+            return
+        
+        elif infos["is_product"]:
+            yield self.getProductInfo(response, infos["product_shared"])
+            
+        links = self.getPageLinks(response)
+        self.order -= 1
+        for link in links:
+            try:
+                self.visited_urls[self.getUrlBase(link)].add(link)
+            except: # if the website base is not a key
+                self.visited_urls[self.getUrlBase(link)] = {link}
+            yield Request(link, priority = self.order)
+            
+        
+        
+    """
+    =================================================================================
+        This part is for identifying pages and filtering pages And Additional method
+    =================================================================================
+    """
 
     '''
     This method is to identify the nature of the page, wether it is a home page or product pages.
@@ -111,12 +140,8 @@ class GeneralSpider(scrapy.Spider):
     
     '''
     def identifyPage(self, response):
-        response = self.cleanResponse(response)
         home_classes, product_classes = self.url_classes[self.getUrlBase(response.url)]
 
-        #   for test
-        print("\n home classes : ", len(home_classes), "\n product classes : ", len(product_classes))
-        #
         # get the classes presented in the page
         classes = response.xpath("//@class").getall()
         page_classes = set()
@@ -146,47 +171,28 @@ class GeneralSpider(scrapy.Spider):
         elif (ratio_product > UPDATE_RATIO):
             product_classes = product_classes.union(page_classes - home_classes)
 
-
         self.url_classes[self.getUrlBase(response.url)] = [home_classes, product_classes]
-        
-        
-        #return({"product_shared": product_shared, "home_shared" : home_shared,"is_home":is_home, "is_product":is_product})
-        return ({"url" : response.url,"is_home":is_home, "is_product":is_product, "home_ratio":ratio_home, "product_ratio" : ratio_product})
+             
+        return({"product_shared": product_shared, "home_shared" : home_shared,"is_home":is_home, "is_product":is_product})
+        # return ({"url" : response.url,"is_home":is_home, "is_product":is_product, "home_ratio":ratio_home, "product_ratio" : ratio_product})
+
 
     '''
-    The default method that is called after yield a request to a page
+
+    Get the information from the product page
+
     '''
-    def parse(self, response):
-        #response = self.cleanResponse(response)
-        infos = self.identifyPage(response)
-        yield infos # delete after 
-        # the page is neither a home nor a product
-        if (not(infos["is_home"]) and not(infos["is_product"])):
-            return
-        
-        '''
-
-        elif infos["is_product"]:
-            print("url is a PRODUCT : ", response.url)
-            yield self.getProductInfo(response, infos["product_shared"])
-        else:
-            print("url is a PAGEEE  :", response.url)
-        '''
-
-        
-        links = self.getPageLinks(response)
-        for link in links:
-            self.visited_urls.add(link)
-            yield Request(link)
-
-
     def getProductInfo(self, response, product_shared):
         product_classes = [x for x in product_shared if self.shareWithList(x, product_identifiers)]
         product_classes = [x for x in product_classes if len(response.css("." + x)) == 1]
 
-        gallery_classes = [x for x in product_classes if self.shareWithList(x, images_identifiers)]
+        image_classes = [x for x in product_classes if self.shareWithList(x, images_identifiers)]
         infos_classes = [x for x in product_classes if self.shareWithList(x, infos_identifiers)]
-        # title_classes = [x for x in product_classes if "title" in x]
+        title_classes = [x for x in product_classes if self.shareWithList(x, title_identifiers)]
+
+        images = self.getImgsFromClasses(response ,image_classes) # get the images
+        titles = self.getTitle(response, title_classes)
+        
         '''
         imgs = set()
         for classe in gallery_classes:
@@ -203,51 +209,39 @@ class GeneralSpider(scrapy.Spider):
                 price.append(response.css("." + cls)[0].xpath("descendant::text()").getall())
             except:
                 pass
-        return {"url" : response.url,"imgs" : list(imgs), "titles" : titles, "price" : price}
         '''
-        return {"url" : response.url, "product_classes" : product_classes, "product_shared" : product_shared , "image_classes" : gallery_classes, "infos_classes" : infos_classes}
+        return {"url" : response.url,"images" : images, "titles" : titles} #, "price" : price}
         
-        
-        
-    """
-    =================================================================================
-        This part is for identifying pages and filtering pages And Additional method
-    =================================================================================
-    """
+        #return {"url" : response.url, "product_classes" : product_classes, "product_shared" : product_shared , "image_classes" : gallery_classes, "infos_classes" : infos_classes}
 
-    """
-    Clean the received response, it will remove the header and footer part of the repsonse,
-    as most of the links in those two sections aren't related to products.
-    """
-    def cleanResponse(self, response):
-        copy_response = response.copy()
-        '''
-        try:
-            # remove header
-            headers = copy_response.css("header")
-            for header in headers:
-                header.remove()
+    def getImgsFromClasses(self, response,classes):
+        images = set()
+        for classe in classes:
+            imgs = set(response.css("." + classe)[0].xpath('descendant::img/@src').getall())
+            images = images.union(imgs)
 
-        except Exception as e:
-            pass
+        return list(images)
 
-        try:
-            # remove footer
-            footers = copy_response.css("footer")
-            for footer in footers:
-                footer.remove()
-
-        except Exception as e:
-            pass
-        '''
-        return copy_response
+    def getTitle(self, response, classes):
+        h1_title = response.css("h1") # usually title written in h1
+        if len(h1_title) == 1:
+            return remove_tags(h1_title.get())
+        else:
+            titles = set()
+            for classe in classes:
+                titles.add(response.css("." + classe)[0].xpath('text()').get())
+            return list(titles)
+            
 
     '''
     get the links presented in the page
     '''
     def getPageLinks(self, response):
         links = response.xpath(self.getXpathForLinks(response)).getall()
-        links = {response.urljoin(x) for x in links if x not in self.visited_urls}
+        try:
+            links = {response.urljoin(x) for x in links if x not in self.visited_urls[self.getUrlBase(response.url)]}
+        except: # if url base is not a key in dict then pass
+            pass
         # filter the links, accept who has same domain and a valid extension
         links = {x for x in links if ((self.getUrlBase(response.url) in self.getUrlNetloc(x)) and self.isValidUrl(x))}
         return links

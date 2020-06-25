@@ -65,3 +65,34 @@ Worked on many sites.
 
 NOTE TO update : To identify the product page, we should not only take into account the url base, but ---------------- also the whole netloc.
 
+
+Third test - 25/06/2020:
+------------------------
+
+This test contains many change that will improve the efficency and generality of the bot.
+
+First part, for identifying a home or product page, we no longer remove the footer and the header page, because it caused a problem in the site : https://www.imparfaiteparis.com/shop/filters/price/:50/ 
+
+And the links in those two section will be filtered by the common_words, and there is a high chance that the program will not identify those page neither as product nor home page, so it will stop there.
+
+::::: A problem that rised from this techniq is that now most of the page look like a home page ( even a product page !), in term of home ratio. But this ratio will decrease as the program identify more home and product page.
+
+ -+- In yield request from the parse function, we assign a priority to each set of requests, so the request from the same page will have same priority, and the sets of links that is early will be excuted first. This method helps to not go in a loop of pages that are all home pages and that contains products that we have scraped before, especially for the page that contains filter links. (as we have encoutred in the site : jadium).
+
+
+Second part, for extracting the images and information from product pages, 
+We filter the classes that contains some specific words to represent a product, then for each data that we want to extract we filter those classes with a list of word related to the data we want to extract.
+For the title, usually the title is written in <h1>, and it is the only text written inside h1 tag in the whole page.
+
+::::: Some problem resulted in that approch, some sites doesn't write the name clearly as we expect, so the classes that contains the image doesn't have image, picture ... in its name !!
+ 
+
+NOTE : In next version we will continue to extract and clean extracted data from regular site.
+NOTE : after that we will try to get a solution for the problem stated above.
+
+
+
+
+
+
+
