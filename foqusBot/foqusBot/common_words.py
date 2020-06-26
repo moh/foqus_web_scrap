@@ -14,7 +14,7 @@ product_identifiers = ["product", "produit"]
 images_identifiers = ["image", "gallery", "img", "ima", "thumb"]
 
 # list of words to identify classes related to product informations
-infos_identifiers = ["details", "description", "info", "information"]
+infos_identifiers = ["details", "descr", "info", "summary"]
 
 # list of words to identify classes related to product prices
 prices_identifiers = ["price", "prix"]

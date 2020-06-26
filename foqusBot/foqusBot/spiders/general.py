@@ -24,13 +24,17 @@ class GeneralSpider(scrapy.Spider):
     url_classes : dict that have keys the base of the website, and value two lists, that
     represents the list of class of home page, and the list of class of product page
 
-    
+    visited_urls : dict that have keys the base of the website, and value the links visited from that site.
+
+    shared_product_info : dict that have keys the base of the website, and value the shared part of product
+                        informations (usually it is related to general information about the website)
     '''
     def __init__(self, *a, **kw):
         super(GeneralSpider, self).__init__(*a, **kw)
         self.url_home_products = dict()
         self.url_classes = dict()
         self.visited_urls = dict()
+        self.shared_product_info = dict()
         self.order = 0
         
 
@@ -192,25 +196,10 @@ class GeneralSpider(scrapy.Spider):
 
         images = self.getImgsFromClasses(response ,image_classes) # get the images
         titles = self.getTitle(response, title_classes)
+        informations = self.getInfosFromClasses(response, infos_classes)
         
-        '''
-        imgs = set()
-        for classe in gallery_classes:
-            local_imgs = set(response.css("." + classe)[0].xpath('descendant::img/@src').getall())
-            imgs = imgs.union(local_imgs)
-            
-        titles = [response.css("." + x).xpath("text()").get() for x in title_classes]
-        price = []
-        for classe in infos_classes:
-            # select all classes inside the element of class = classe
-            try:
-                cls = response.css("." + classe)[0].xpath("descendant::*/@class").getall()
-                cls = [x for x in cls if "price" in x.lower()][0]
-                price.append(response.css("." + cls)[0].xpath("descendant::text()").getall())
-            except:
-                pass
-        '''
-        return {"url" : response.url,"images" : images, "titles" : titles} #, "price" : price}
+        
+        return {"url" : response.url,"images" : images, "titles" : titles, "informations": informations} #, "price" : price}
         
         #return {"url" : response.url, "product_classes" : product_classes, "product_shared" : product_shared , "image_classes" : gallery_classes, "infos_classes" : infos_classes}
 
@@ -231,6 +220,26 @@ class GeneralSpider(scrapy.Spider):
             for classe in classes:
                 titles.add(response.css("." + classe)[0].xpath('text()').get())
             return list(titles)
+
+    def getInfosFromClasses(self, response, classes):
+        informations = []
+        url_base = self.getUrlBase(response.url)
+        for classe in classes:
+            infos = response.css("." + classe)[0].xpath("//p/text()").getall()
+            informations.extend(x for x in infos if x not in informations) # we won't use a set because we want the informations in order
+
+        informations = [x for x in informations if self.textNotEmpty(x)]
+
+        if url_base in self.shared_product_info:
+            common_info = set(informations).intersection(self.shared_product_info[url_base])
+            self.shared_product_info[url_base] = common_info
+            informations = [x for x in (set(informations) - common_info)]
+
+        else: # if this is the first product from that website
+            self.shared_product_info[url_base] = set(informations)
+            
+        return informations
+        
             
 
     '''
@@ -298,8 +307,12 @@ class GeneralSpider(scrapy.Spider):
             filename, extension = os.path.splitext(url_path)
             return extension in accepted_extensions
         except Exception as e:
-            print("\n /\/\/\/\/\/\/\/\/\/\/\/\/\ Error /\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\ \n")
             print(e)
-            print("\n /\/\/\/\/\/\/\/\/\/\/\/\/\ Error /\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\ \n")
             
-            return False
+        return False
+
+    def textNotEmpty(self, x):
+        emptyList = [" ", "\n", "\t", ".", ",", ";"]
+        for y in emptyList:
+            x = x.replace(y, "")
+        return x != ""
