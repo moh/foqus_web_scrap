@@ -91,6 +91,18 @@ NOTE : In next version we will continue to extract and clean extracted data from
 NOTE : after that we will try to get a solution for the problem stated above.
 
 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ATTENTION ATTENTION ATTENTION
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Sometime the program is identifying a product page as a home page, when the differences isn't really huge.
+NOTE TO UPDATE : we should look at the link of product page, sometimes the links of product pages contain a specific word !
+
+!!!!!!!!!!!!!!!!!!!!===============================!!!!!!!!!!!!!!!!!!!!!!!
+				CHANGE 
+!!!!!!!!!!!!!!!!!!!!===============================!!!!!!!!!!!!!!!!!!!!!!!
+
+
+In the site "www.serie-noire.com", when we get the data, the images doesn't have a src attribute ( strange ), they do "have data-big-src", ... but to not deal with specific names, we extract the links in the body of the image tag, ONLY WHEN EXTRACTING SRC give 0 results.
 
 
 

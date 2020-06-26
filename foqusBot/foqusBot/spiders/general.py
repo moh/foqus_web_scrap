@@ -5,6 +5,7 @@ import csv
 from scrapy.http import Request
 from urllib.parse import urlparse
 from w3lib.html import remove_tags
+import re
 # common_words contain words used frequently by websites
 from foqusBot.common_words import *
 
@@ -193,7 +194,7 @@ class GeneralSpider(scrapy.Spider):
         image_classes = [x for x in product_classes if self.shareWithList(x, images_identifiers)]
         infos_classes = [x for x in product_classes if self.shareWithList(x, infos_identifiers)]
         title_classes = [x for x in product_classes if self.shareWithList(x, title_identifiers)]
-
+        
         images = self.getImgsFromClasses(response ,image_classes) # get the images
         titles = self.getTitle(response, title_classes)
         informations = self.getInfosFromClasses(response, infos_classes)
@@ -209,6 +210,12 @@ class GeneralSpider(scrapy.Spider):
             imgs = set(response.css("." + classe)[0].xpath('descendant::img/@src').getall())
             images = images.union(imgs)
 
+        # in some site, the url is not in a src attribute.
+        if (len(images) == 0 and len(classes) != 0):
+            for classe in classes:
+                imgs = response.css("." + classe)[0].xpath("descendant::img").getall()
+                images = images.union(self.extractUrlFromImgs(imgs))
+            
         return list(images)
 
     def getTitle(self, response, classes):
@@ -225,19 +232,21 @@ class GeneralSpider(scrapy.Spider):
         informations = []
         url_base = self.getUrlBase(response.url)
         for classe in classes:
-            infos = response.css("." + classe)[0].xpath("//p/text()").getall()
-            informations.extend(x for x in infos if x not in informations) # we won't use a set because we want the informations in order
+            info_div_string = response.css("." + classe).get()
+            infos = remove_tags(info_div_string)
+            infos = [x.strip() for x in infos.split("\n") if self.textNotEmpty(x)]
+            informations.append(infos) #informations.union(set(infos.split("\n")))
 
-        informations = [x for x in informations if self.textNotEmpty(x)]
-
+        # informations = [x.strip() for x in informations if self.textNotEmpty(x)]
+        '''
         if url_base in self.shared_product_info:
             common_info = set(informations).intersection(self.shared_product_info[url_base])
             self.shared_product_info[url_base] = common_info
-            informations = [x for x in (set(informations) - common_info)]
+            informations = list(set(informations) - common_info)
 
         else: # if this is the first product from that website
             self.shared_product_info[url_base] = set(informations)
-            
+        ''' 
         return informations
         
             
@@ -312,7 +321,14 @@ class GeneralSpider(scrapy.Spider):
         return False
 
     def textNotEmpty(self, x):
-        emptyList = [" ", "\n", "\t", ".", ",", ";"]
+        emptyList = [" ", "\n", "\t", ".", ",", ";", "\r"]
         for y in emptyList:
             x = x.replace(y, "")
         return x != ""
+
+    def extractUrlFromImgs(self, imgs):
+        links = set()
+        for img in imgs:
+            links = links.union(set(re.findall(r'(https?://\S+)', img)))
+        links = {x[:-1] for x in links} # because they will cotains " at the end
+        return links
