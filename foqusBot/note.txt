@@ -128,7 +128,7 @@ Also another type of problem is for example in the page https://boutique.guydema
 A proposed solution : 
 =====================
 if we have any h1 tag, we will take the first h1 tag as it should be the one related to the main product.
-
+and we will go through the descendant of the parent, if we go through a child that have images more then 2 and less then 10 then we selects this images.
 
 
 

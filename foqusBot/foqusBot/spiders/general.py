@@ -100,6 +100,7 @@ class GeneralSpider(scrapy.Spider):
         
         # the page is neither a home nor a product
         if (not(infos["is_home"]) and not(infos["is_product"])):
+            print("\n================== is NOTHING :  url ", response.url)
             return
         
         elif infos["is_product"]:
@@ -175,7 +176,8 @@ class GeneralSpider(scrapy.Spider):
     '''
     def getProductInfo(self, response, product_shared):
         product_classes = [x for x in product_shared if self.shareWithList(x, product_identifiers)]
-        product_classes = [x for x in product_classes if len(response.css("." + x)) == 1]
+        print("product classes =  ", product_classes)
+        product_classes = [x for x in product_classes if len(response.xpath('//*[contains(@class, "'+x+'")]')) == 1]
 
         image_classes = [x for x in product_classes if self.shareWithList(x, images_identifiers)]
         infos_classes = [x for x in product_classes if self.shareWithList(x, infos_identifiers)]
@@ -186,7 +188,7 @@ class GeneralSpider(scrapy.Spider):
         informations = self.getInfosFromClasses(response, infos_classes)
         all_informations = self.getAllInfosFromClasses(response, infos_classes)
 
-        if len(images) == 0:
+        if len(images) <= 2:
             images = self.getImgFromTitleDiv(response)
         
         return {"url" : response.url,"images" : images, "titles" : titles, "informations": informations, "all_informations":all_informations} #, "price" : price}
@@ -217,14 +219,14 @@ class GeneralSpider(scrapy.Spider):
 
     Get the title of the product in the page.
     First we search for the h1 tags, as usually it contains the title.
-    if we have a uniq text inside all the h1 tag then we return this title.
+    if we have h1 tags we return the text inside the first one.
     if not we search for the title using a list of classes related to product and title.
     
     '''
     def getTitle(self, response, classes):
         h1_title = response.css("h1") # usually title written in h1
-        if len(h1_title) <= 2:
-            titles = {remove_tags(x) for x in h1_title.getall()}
+        if len(h1_title) > 0:
+            return remove_tags(h1_title.get())
         else:
             titles = set()
             for classe in classes:
@@ -287,22 +289,20 @@ class GeneralSpider(scrapy.Spider):
     '''
     def getImgFromTitleDiv(self, response):
         title_div = response.css("h1") # get h1 div
-        titles = {remove_tags(x) for x in title_div.getall()}
-        # if we have multiple h1 with different contents
-        if len(titles) > 1:
-            return []
-        title_div = title_div[-1] # select the last h1 div.
+        if len(title_div) == 0: return [] # if no h1 tag found return empty list
+        title_div = title_div[0] # select the last h1 div.
         title_div_parents = title_div.xpath("ancestor::*")
         div_parent, div_child = None, None
         for div in title_div_parents[::-1]:
-            if len(div.css("img")) >= 2:
+            if len(set(div.xpath("descendant::img/@src").getall())) >= 2:
                 div_parent = div
                 break
         # if no parent have more then 1 image we return []
         if div_parent == None: return []
-        div_childrens = div_parent.xpath("*")
+        div_childrens = div_parent.xpath("descendant::div")
         for div in div_childrens:
-            if len(div.css("img")) >= 2:
+            nb_img = len(set(div.xpath("descendant::img/@src").getall()))
+            if nb_img >= 2 and nb_img <= 10: # limit the number to between 2 and 10
                 div_child = div
                 break
         if div_child == None: return []
@@ -324,6 +324,7 @@ class GeneralSpider(scrapy.Spider):
     '''
     def getPageLinks(self, response):
         links = response.xpath(self.getXpathForLinks(response)).getall()
+        links = {response.urljoin(x) for x in links} # get absolute url
         # filter the links, accept who has same domain and a valid extension
         links = {x for x in links if ((self.getUrlBase(response.url) in self.getUrlNetloc(x)) and self.isValidUrl(x))}
         return links
