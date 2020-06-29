@@ -12,10 +12,6 @@ from foqusBot.common_words import *
 # MIN_RATIO is the min ratio where the page is still identified as home or product page
 MIN_RATIO = 0.3
 
-# UPDATE_RATIO : if the ratio of classes is more then those ratio then we are pretty sure about the nature of the page,
-# so we add the classes found here to the list of the specified nature
-UPDATE_RATIO = 0.8
-
 class GeneralSpider(scrapy.Spider):
     name = 'generalFoqus'
 
@@ -25,8 +21,6 @@ class GeneralSpider(scrapy.Spider):
     url_classes : dict that have keys the base of the website, and value two lists, that
     represents the list of class of home page, and the list of class of product page
 
-    visited_urls : dict that have keys the base of the website, and value the links visited from that site.
-
     shared_product_info : dict that have keys the base of the website, and value the shared part of product
                         informations (usually it is related to general information about the website)
     '''
@@ -34,7 +28,6 @@ class GeneralSpider(scrapy.Spider):
         super(GeneralSpider, self).__init__(*a, **kw)
         self.url_home_products = dict()
         self.url_classes = dict()
-        self.visited_urls = dict()
         self.shared_product_info = dict()
         self.order = 0
         
@@ -52,7 +45,6 @@ class GeneralSpider(scrapy.Spider):
                 self.url_home_products[self.getUrlBase(line[0])] = line
                 yield Request(line[0], callback = self.getHomeClasses)
                 
-
 
     '''
     This method will extract the classes from the home page that is given in the csv file,
@@ -122,10 +114,6 @@ class GeneralSpider(scrapy.Spider):
         links = self.getPageLinks(response)
         self.order -= 1
         for link in links:
-            try:
-                self.visited_urls[self.getUrlBase(link)].add(link)
-            except: # if the website base is not a key
-                self.visited_urls[self.getUrlBase(link)] = {link}
             yield Request(link, priority = self.order)
             
         
@@ -174,24 +162,11 @@ class GeneralSpider(scrapy.Spider):
         # if the two ratio are smaller then MIN_RATIO, then the page is neither a product nor a home page
         if( (ratio_home < MIN_RATIO) and (ratio_product < MIN_RATIO)):
             is_home = is_product = False
-
-        '''
-        # if it is only identical to product page
-        # !!! NOTE this should be placed before home, because home look like the product too
-        elif (ratio_product > UPDATE_RATIO):
-            product_classes = product_classes.union(page_classes - home_classes)
-            is_product, is_home = True, False
-        # if it is only so identical to home page
-        elif (ratio_home > UPDATE_RATIO):
-            home_classes = home_classes.union(page_classes - product_classes)
-        '''
         
         self.url_classes[self.getUrlBase(response.url)] = [home_classes, product_classes]
              
         return({"product_shared": product_shared, "home_shared" : home_shared,"is_home":is_home, "is_product":is_product
                 , "ratio_home":ratio_home, "ratio_product" : ratio_product})
-        # return ({"url" : response.url,"is_home":is_home, "is_product":is_product, "home_ratio":ratio_home, "product_ratio" : ratio_product})
-
 
     '''
 
@@ -199,7 +174,6 @@ class GeneralSpider(scrapy.Spider):
 
     '''
     def getProductInfo(self, response, product_shared):
-        print("PRODUCT_CLASSE : ", product_shared)
         product_classes = [x for x in product_shared if self.shareWithList(x, product_identifiers)]
         product_classes = [x for x in product_classes if len(response.css("." + x)) == 1]
 
@@ -219,7 +193,13 @@ class GeneralSpider(scrapy.Spider):
         
         #return {"url" : response.url, "product_classes" : product_classes, "product_shared" : product_shared , "image_classes" : gallery_classes, "infos_classes" : infos_classes}
 
-    def getImgsFromClasses(self, response,classes):
+    '''
+
+    Return the images src URL that are descendant of a div that have the classes in the list.
+    classes is a list of classe that have some specific words like product, image ...
+    
+    '''
+    def getImgsFromClasses(self, response, classes):
         images = set()
         for classe in classes:
             imgs = set(response.css("." + classe)[0].xpath('descendant::img/@src').getall())
@@ -233,6 +213,14 @@ class GeneralSpider(scrapy.Spider):
             
         return [ response.urljoin(x) for x in images] # get the absolute urls
 
+    '''
+
+    Get the title of the product in the page.
+    First we search for the h1 tags, as usually it contains the title.
+    if we have a uniq text inside all the h1 tag then we return this title.
+    if not we search for the title using a list of classes related to product and title.
+    
+    '''
     def getTitle(self, response, classes):
         h1_title = response.css("h1") # usually title written in h1
         if len(h1_title) <= 2:
@@ -245,6 +233,14 @@ class GeneralSpider(scrapy.Spider):
             return list(titles)[0]
         return list(titles)
 
+    '''
+
+    Get the product informations using a list of classe related to product and informations.
+    This method may not extract all the useful informations that we need, as the class may not
+    contain the specific words that we have defined.
+    it also select only the text inside the tags that are listed in tag_info.
+    
+    '''
     def getInfosFromClasses(self, response, classes):
         informations = []
         url_base = self.getUrlBase(response.url)
@@ -254,21 +250,18 @@ class GeneralSpider(scrapy.Spider):
                 infos = info_div.xpath("*//" + tag).getall() # select span and texts
                 infos = [remove_tags(x) for x in infos]
                 infos = [x.strip() for x in infos if self.textNotEmpty(x)]
-                if infos != []: informations.append(infos) #informations.union(set(infos.split("\n")))
+                if infos != []: informations.append(infos)
 
-        # informations = [x.strip() for x in informations if self.textNotEmpty(x)]
-        '''
-        if url_base in self.shared_product_info:
-            common_info = set(informations).intersection(self.shared_product_info[url_base])
-            self.shared_product_info[url_base] = common_info
-            informations = list(set(informations) - common_info)
-
-        else: # if this is the first product from that website
-            self.shared_product_info[url_base] = set(informations)
-        '''
         return informations
 
-    # this will return all the text found in the section
+    '''
+
+    This method is identical to getInfosFromClasses, but the difference is that we don't
+    look at specific tag to extract the text inside of them, but instead we eliminate all the tags
+    inside the div and return the data.
+    It is also not so accurate.
+
+    '''
     def getAllInfosFromClasses(self, response, classes):
         resp = response.copy()
         scripts = resp.xpath("//script")
@@ -283,8 +276,15 @@ class GeneralSpider(scrapy.Spider):
             if infos != []: informations.append(infos)
         return informations
 
-    # NOTE TO CHANGE THE MINE NUMBER 2, and test
-    # 
+
+    '''
+
+    This method is an alternative way to extract images related to product, in case the
+    first method based on class names didn't work.
+    it looks for the h1 tag that contains the title, then search for the images by iterating the
+    ancestor of the title, it relys on the number of images found. ( more then 1 )
+    
+    '''
     def getImgFromTitleDiv(self, response):
         title_div = response.css("h1") # get h1 div
         titles = {remove_tags(x) for x in title_div.getall()}
@@ -298,6 +298,7 @@ class GeneralSpider(scrapy.Spider):
             if len(div.css("img")) >= 2:
                 div_parent = div
                 break
+        # if no parent have more then 1 image we return []
         if div_parent == None: return []
         div_childrens = div_parent.xpath("*")
         for div in div_childrens:
@@ -308,16 +309,21 @@ class GeneralSpider(scrapy.Spider):
         images = set(div_child.xpath("descendant::img/@src").getall())
         return [response.urljoin(x) for x in images]
         
+    '''
+
+    =============================================================================
+                                    AIDE METHODS
+    =============================================================================
+    
+    '''
 
     '''
+
     get the links presented in the page
+    
     '''
     def getPageLinks(self, response):
         links = response.xpath(self.getXpathForLinks(response)).getall()
-        try:
-            links = {response.urljoin(x) for x in links if x not in self.visited_urls[self.getUrlBase(response.url)]}
-        except: # if url base is not a key in dict then pass
-            pass
         # filter the links, accept who has same domain and a valid extension
         links = {x for x in links if ((self.getUrlBase(response.url) in self.getUrlNetloc(x)) and self.isValidUrl(x))}
         return links
@@ -364,7 +370,7 @@ class GeneralSpider(scrapy.Spider):
         return False
 
     """
-    
+    check if the url is a valid url, ie not image, pdf ... url
     """
     def isValidUrl(self, url):
         # valid extension for web page
@@ -378,12 +384,18 @@ class GeneralSpider(scrapy.Spider):
             
         return False
 
+    """
+    return true if the text is not empty, that it contains other caracters then the listed in emptyList
+    """
     def textNotEmpty(self, x):
         emptyList = [" ", "\n", "\t", ".", ",", ";", "\r"]
         for y in emptyList:
             x = x.replace(y, "")
         return x != ""
 
+    """
+    extract the url that are in a list of string, in this code the list is a list of img tag.
+    """
     def extractUrlFromImgs(self, imgs):
         links = set()
         for img in imgs:

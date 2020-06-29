@@ -120,6 +120,15 @@ Some sites doesn't have a clear name of the classes that contains images or info
 
 we start by going up in the parents of the title till we found one that contains more images then 1 ( we may write a higher number in case the div of the title contains some logo or small images), then we go in the children of that parent to get the div that contains the image.
 
+This method of extracting images worked on boutique.guydemarle.com and www.lapiscine-paris.fr, however we still find some exceptions where the method won't work, for example in the page https://boutique.guydemarle.com/pistoles-de-chocolat/249-pistoles-de-chocolat-blanc-34-zephyr-1-kg-cacao.html we have two h1 tag, the first one contain "Pistoles de chocolat blanc 34% Zephyr 1 kg" and the second one "Pistoles de chocolat blanc 34% Zephyr" so they are different for the program, so many titles.
+
+Also another type of problem is for example in the page https://boutique.guydemarle.com/moules-silicone-guy-demarle/1806-offre-les-ustensiles-malins-spatule-bleu.html we have many h1 tag that contains the title of the product, and the titles of each part of the product.
+
+
+A proposed solution : 
+=====================
+if we have any h1 tag, we will take the first h1 tag as it should be the one related to the main product.
+
 
 
 
