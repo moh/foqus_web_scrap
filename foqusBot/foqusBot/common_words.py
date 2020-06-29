@@ -21,3 +21,7 @@ prices_identifiers = ["price", "prix"]
 
 # list of words to identify classes related to product title
 title_identifiers = ["title", "titre"]
+
+
+#
+tag_info = ["p", "span", "li", "h3", "h2"]

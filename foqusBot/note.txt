@@ -105,6 +105,22 @@ NOTE TO UPDATE : we should look at the link of product page, sometimes the links
 In the site "www.serie-noire.com", when we get the data, the images doesn't have a src attribute ( strange ), they do "have data-big-src", ... but to not deal with specific names, we extract the links in the body of the image tag, ONLY WHEN EXTRACTING SRC give 0 results.
 
 
+!!!!!!!!!!!!!!!!!!!================================!!!!!!!!!!!!!!!!!!!!!!!
+				CHANGE
+!!!!!!!!!!!!!!!!!!!================================!!!!!!!!!!!!!!!!!!!!!!!
+
+We no longer update the classes of home or product page, because as we have removed the header and footer, the home page share so many classes with any other page on the website, that sometimes home_ratio is more then product_ratio in a product page.
+
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Test 29/06/2020
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Some sites doesn't have a clear name of the classes that contains images or informations, in this update, in case the first method didn't work to collect images, we try to get the images from the div that contain the title, or the h1 tag. In case we have many h1 tag, we collect the data inside and check if they are the same, if it is the case we take the div of the last h1 ( because it should refer to actual title as in www.lapiscine-paris.fr)
+
+we start by going up in the parents of the title till we found one that contains more images then 1 ( we may write a higher number in case the div of the title contains some logo or small images), then we go in the children of that parent to get the div that contains the image.
+
+
 
 
 
