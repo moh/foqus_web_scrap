@@ -131,5 +131,31 @@ if we have any h1 tag, we will take the first h1 tag as it should be the one rel
 and we will go through the descendant of the parent, if we go through a child that have images more then 2 and less then 10 then we selects this images.
 
 
+NOTE :::
+========
+
+In the recent change, if we have only one or none image from first method by class name, we proceed to get the images by the second method.
+However some products have only one image, and they are collected correctly by the "class name" method, so using the second method on them will result in assigning the wrong pictures to the wrong products.
+
+
+A proposed solution:
+====================
+
+Try to detect wich method is always being used by the products from that site, and follow the same rule on other pages, as we are working with small websites that will have the same product page template.
+
+Also we can note the classes of the div that are usually used by the second method, and use them after.
+
+
+=====================================================
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	IMPORTANT UPDATE  30 / 06 / 2020
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+=====================================================
+
+In this update, the program is able to analyze which method is being used most of the time on the product of the page and after a fixed number of pages, it will always follow the same method for all the other pages, this number is stored in LEARN_IMG_NB_PAGE, this number should be large in large test to be able to detect correctly the suitable method and classes for each sites, this techniq will also allow us to detect the error in selecting images in the first phase of the program.
+
+Also the program, if we are always in the second method, extracting images from title div, the program will be able to detect the classes that usually are used by this method, it will try to estimate the best class based on the number of pages that have used those classes, and based on a score number that represent the total number of images collected by this class.
+After identifying the suitable class, we will always use this class to extract the images that are related to product in the website.
+This techniq also will let us detect the first error in scraping based on the comparision between the classes used.
 
 
