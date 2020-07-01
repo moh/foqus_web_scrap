@@ -159,3 +159,21 @@ After identifying the suitable class, we will always use this class to extract t
 This techniq also will let us detect the first error in scraping based on the comparision between the classes used.
 
 
+
+=====================================================
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+			UPDATE
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+=====================================================
+
+In large sites we may have many categories, and it may be impossible to jump from one categorie to another using just links found on product pages, so to solve that we will add many home pages that each is related to a different category, to do that the principal home page ( the one we will learn the classes ) is in the first case, the product page is on the second case, then we can add as many pages as we want to the other pages.
+
+
+
+
+
+
+
+
+
+

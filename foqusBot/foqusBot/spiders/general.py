@@ -91,22 +91,26 @@ class GeneralSpider(scrapy.Spider):
     '''
     def getProductClasses(self, response):
         classes = response.xpath("//@class").getall()
+        url_base = self.getUrlBase(response.url)
         final_classes = set()
         
         for class_names in classes:
             final_classes = final_classes.union(set(class_names.split(" ")))
 
         # this part to get the unique classes of home and product page
-        homePageClasses = self.url_classes[self.getUrlBase(response.url)][0]
+        homePageClasses = self.url_classes[url_base][0]
         product_classes = final_classes - homePageClasses
         home_classes = homePageClasses - final_classes
 
-        self.url_classes[self.getUrlBase(response.url)] = [home_classes, product_classes]
+        self.url_classes[url_base] = [home_classes, product_classes]
 
         # initiate the method statistics to zeros
-        self.methods_stat[self.getUrlBase(response.url)] = [0, 0]
-        # call the home page to analyse links
-        yield Request(self.url_home_products[self.getUrlBase(response.url)][0], dont_filter = True)
+        self.methods_stat[url_base] = [0, 0]
+
+        home_links = [self.url_home_products[url_base][0]] + self.url_home_products[url_base][2:]
+        # call the home pages to analyse links
+        for link in home_links:
+            yield Request(link, dont_filter = True)
         
 
     '''
@@ -199,12 +203,12 @@ class GeneralSpider(scrapy.Spider):
         product_classes = [x for x in product_classes if len(response.xpath('//*[contains(@class, "'+x+'")]')) == 1]
 
         image_classes = [x for x in product_classes if self.shareWithList(x, images_identifiers)]
-        # infos_classes = [x for x in product_classes if self.shareWithList(x, infos_identifiers)]
+        infos_classes = [x for x in product_classes if self.shareWithList(x, infos_identifiers)]
         title_classes = [x for x in product_classes if self.shareWithList(x, title_identifiers)]
-        
+        print("infos_classes = ", infos_classes)
         images = self.getImgsFromClasses(response ,image_classes) # get the images
         titles = self.getTitle(response, title_classes)
-        # informations = self.getInfosFromClasses(response, infos_classes)
+        #informations = self.getInfosFromClasses(response, infos_classes)
         # all_informations = self.getAllInfosFromClasses(response, infos_classes)
 
         if nb_pages != 0:
@@ -219,12 +223,13 @@ class GeneralSpider(scrapy.Spider):
         else:
             self.methods_stat[url_base][0] += 1 # update number related to first method.
             method = "1"
-            
-        #print("\n Method statisticss !! :::: ", self.methods_stat[url_base])
-        #return {"url" : response.url,"images" : images, "titles" : titles, "informations": informations,
-        #       "all_informations":all_informations, "method":method, "stat":self.titleImg_method_classes} #, "price" : price}
 
-        return {"url" : response.url,"images" : images, "titles" : titles, "method":method, "stat":self.titleImg_method_classes}
+        try:
+            stat = self.titleImg_method_classes[url_base]
+        except:
+            
+            stat = {}
+        return {"url" : response.url,"images" : images, "titles" : titles, "method":method, "stat":stat}
         
     '''
 
@@ -485,7 +490,12 @@ class GeneralSpider(scrapy.Spider):
     """
     def extractUrlFromImgs(self, imgs):
         links = set()
+        filtered_links = set()
         for img in imgs:
             links = links.union(set(re.findall(r'(https?://\S+)', img)))
-        links = {x[:-1] for x in links} # because they will cotains " at the end
-        return links
+        for x in links:
+            if x[-1] in ["'", '"']:
+                filtered_links.add(x[:-1])
+            else:
+                filtered_links.add(x)
+        return filtered_links
