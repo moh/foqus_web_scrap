@@ -175,6 +175,6 @@ in the precedent version we rely on the class name of the class to get the div a
 
 self.titleImg_method_classes[url_base][selected_class] now has a length of 3, the first is the number of the page, the second number is the score and the third is a set of ids related to this class if only it is None.
 
-
+Another problem is also sometimes when we select a class name that is usually used, we try to get the div that have exactly the same class name, but in some sites they may change it slighlty depending in the number of images, so we extract all the class names inside the one found ( split by " "), and we try to get the uniq div that contain a class between them.
 
 
