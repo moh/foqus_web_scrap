@@ -168,11 +168,12 @@ This techniq also will let us detect the first error in scraping based on the co
 
 In large sites we may have many categories, and it may be impossible to jump from one categorie to another using just links found on product pages, so to solve that we will add many home pages that each is related to a different category, to do that the principal home page ( the one we will learn the classes ) is in the first case, the product page is on the second case, then we can add as many pages as we want to the other pages.
 
+PROBLEMS : 
+----------
 
+in the precedent version we rely on the class name of the class to get the div after, in some site as www.mementomori-shop.com where few divs have a class name. but they do have an id name, so we will add the id to the list related to classes, if the class is None then we use the id ( if it exists ) to identify the div. 
 
-
-
-
+self.titleImg_method_classes[url_base][selected_class] now has a length of 3, the first is the number of the page, the second number is the score and the third is a set of ids related to this class if only it is None.
 
 
 

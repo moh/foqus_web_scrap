@@ -331,6 +331,8 @@ class GeneralSpider(scrapy.Spider):
         try:
             stat_dict = self.titleImg_method_classes[url_base]
             # select the class that have maximum number of pages
+            if len(stat_dict) == 0: # if the dict is empty then raise error and exit the try
+                raise KeyError
             max_classe_ByNb = max(stat_dict, key = lambda x : stat_dict[x][0])
 
             # select the class that have maximum number of score ( nb of images )
@@ -350,7 +352,11 @@ class GeneralSpider(scrapy.Spider):
                 elif stat_dict[max_classe_ByNb][0]/nb_pages >= 0.5:
                     selected_class = max_classe_ByNb
                 if selected_class != "":
-                    imgs = self.getImgsByClassedDiv(response, selected_class)
+                    if selected_class != None:
+                        imgs = self.getImgsByClassedDiv(response, selected_class)
+                    else:
+                        imgs = self.getImgsByClassedDiv(response, selected_class,
+                                                        self.titleImg_method_classes[url_base][selected_class][2])
                     if len(imgs) > 0:
                         self.titleImg_method_classes[url_base][selected_class][0] += 1
                         self.titleImg_method_classes[url_base][selected_class][1] += len(imgs) # update the score 
@@ -382,19 +388,42 @@ class GeneralSpider(scrapy.Spider):
         images = set(div_child.xpath("descendant::img/@src").getall()) # get the src of images inside the div_child tag
 
         div_child_class = div_child.xpath("@class").get()
+        div_child_id = div_child.xpath("@id").get()
         try:
             self.titleImg_method_classes[url_base][div_child_class][0] += 1
-            self.titleImg_method_classes[url_base][div_child_class][1] += len(images) # update the score 
+            self.titleImg_method_classes[url_base][div_child_class][1] += len(images) # update the score
+            if div_child_class == None:
+                self.titleImg_method_classes[url_base][div_child_class][2].add(div_child_id)
         except: # div_child_class is not a key 
-            self.titleImg_method_classes[url_base][div_child_class] = [1, len(images)] # initiate the number of pages to 1 and initiate the score.
+            if div_child_class == None:
+                self.titleImg_method_classes[url_base][div_child_class] = [1, len(images), set()] # initiate the number of pages to 1 and initiate the score.
+            else:
+                self.titleImg_method_classes[url_base][div_child_class] = [1, len(images)]
         
         return [response.urljoin(x) for x in images]
 
     '''
     get the images inside the div elements that have class name = classe
+    if classe = None then we try to get the div by the id that we have collected
+
+    Also if no div have excatly the same class names, we split the classe into the css classes ( we split by space ), and seach for unique div that have those classes, then we get the imgs.
     '''
-    def getImgsByClassedDiv(self, response, classe):
-        div_imgs = response.xpath("//div[@class = '" + classe + "']/descendant::img/@src").getall()
+    def getImgsByClassedDiv(self, response, classe, ids = set()):
+        div_imgs = []
+        final_classes = set()
+        if classe != None:
+            div_imgs = response.xpath("//div[@class = '" + classe + "']/descendant::img/@src").getall() # get the div that has exactly the same class name, it may contain space ( so many css class )
+            if div_imgs == 0: # if no div found with exactly same classes name, we break it into many class names ( split " ")
+                for class_names in classe:
+                    final_classes = final_classes.union(set(class_names.split(" ")))
+                final_div = {response.xpath('//*[contains(@class, "'+x+'")]')[0] for x in final_classes if len(response.xpath('//*[contains(@class, "'+x+'")]')) == 1} # get only the div that have unique class
+                for div in final_div:
+                    div_imgs.extend(div.xpath("descendant::img/@src")) # get the imgs inside the selected divs
+
+        else: # if the classe is none then we get the images by id 
+            for one_id in ids:
+                if one_id != None:
+                    div_imgs.extend(response.xpath("//div[@id = '" + one_id + "']/descendant::img/@src").getall())
         return list({response.urljoin(x) for x in div_imgs})
         
         
