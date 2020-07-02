@@ -25,3 +25,10 @@ title_identifiers = ["title", "titre"]
 
 #
 tag_info = ["p", "span", "li", "h3", "h2"]
+
+
+# tag to be removed
+tags_remove = ("span", "strong")
+
+# tag to be removed with its content
+tags_remove_content = ("script", "style")

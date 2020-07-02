@@ -3,8 +3,9 @@ import os
 import scrapy
 import csv
 from scrapy.http import Request
+from scrapy import Selector
 from urllib.parse import urlparse
-from w3lib.html import remove_tags
+from w3lib.html import remove_tags, remove_tags_with_content, remove_comments
 import re
 # common_words contain words used frequently by websites
 from foqusBot.common_words import *
@@ -107,6 +108,8 @@ class GeneralSpider(scrapy.Spider):
         # initiate the method statistics to zeros
         self.methods_stat[url_base] = [0, 0]
 
+        yield Request(response.url, dont_filter = True)
+        
         home_links = [self.url_home_products[url_base][0]] + self.url_home_products[url_base][2:]
         # call the home pages to analyse links
         for link in home_links:
@@ -132,12 +135,12 @@ class GeneralSpider(scrapy.Spider):
         else:
             print("\n ------------------ is PAGE : url ", response.url)
             print("ratios product / page ", infos["ratio_product"], "    ", infos["ratio_home"], "\n")
-            
+         
         links = self.getPageLinks(response)
         self.order -= 1
         for link in links:
             yield Request(link, priority = self.order)
-            
+         
         
         
     """
@@ -201,15 +204,15 @@ class GeneralSpider(scrapy.Spider):
         nb_pages, ratio_first_method = sum(self.methods_stat[url_base]), 0
         product_classes = [x for x in product_shared if self.shareWithList(x, product_identifiers)]
         product_classes = [x for x in product_classes if len(response.xpath('//*[contains(@class, "'+x+'")]')) == 1]
-
+        
+        
         image_classes = [x for x in product_classes if self.shareWithList(x, images_identifiers)]
-        infos_classes = [x for x in product_classes if self.shareWithList(x, infos_identifiers)]
+        infos_classes = [x for x in product_shared if self.shareWithList(x, infos_identifiers)]
         title_classes = [x for x in product_classes if self.shareWithList(x, title_identifiers)]
-        print("infos_classes = ", infos_classes)
+        
         images = self.getImgsFromClasses(response ,image_classes) # get the images
         titles = self.getTitle(response, title_classes)
-        #informations = self.getInfosFromClasses(response, infos_classes)
-        # all_informations = self.getAllInfosFromClasses(response, infos_classes)
+        infos = self.getAvailableInfos(response, infos_classes)
 
         if nb_pages != 0:
             ratio_first_method = self.methods_stat[url_base][0] / nb_pages
@@ -229,7 +232,8 @@ class GeneralSpider(scrapy.Spider):
         except:
             
             stat = {}
-        return {"url" : response.url,"images" : images, "titles" : titles, "method":method, "stat":stat}
+        return {"url" : response.url,"images" : images, "titles" : titles,
+                "infos" : infos, "method":method, "stat":stat}
         
     '''
 
@@ -271,49 +275,33 @@ class GeneralSpider(scrapy.Spider):
             return list(titles)[0]
         return list(titles)
 
-    '''
 
-    Get the product informations using a list of classe related to product and informations.
-    This method may not extract all the useful informations that we need, as the class may not
-    contain the specific words that we have defined.
-    it also select only the text inside the tags that are listed in tag_info.
-    
-    '''
-    def getInfosFromClasses(self, response, classes):
-        informations = []
-        url_base = self.getUrlBase(response.url)
-        for classe in classes:
-            info_div = response.css("." + classe)[0]
-            for tag in tag_info:
-                infos = info_div.xpath("*//" + tag).getall() # select span and texts
-                infos = [remove_tags(x) for x in infos]
-                infos = [x.strip() for x in infos if self.textNotEmpty(x)]
-                if infos != []: informations.append(infos)
 
-        return informations
+    ### test ###
 
-    '''
-
-    This method is identical to getInfosFromClasses, but the difference is that we don't
-    look at specific tag to extract the text inside of them, but instead we eliminate all the tags
-    inside the div and return the data.
-    It is also not so accurate.
-
-    '''
-    def getAllInfosFromClasses(self, response, classes):
-        resp = response.copy()
-        scripts = resp.xpath("//script")
-        informations = []
-        # remove all script from response
-        for script in scripts:
-            script.remove()
-        for classe in classes:
-            info_div_str = resp.css("." + classe).get()
-            infos = remove_tags(info_div_str)
-            infos = [x.strip() for x in infos.split("\n") if self.textNotEmpty(x)]
-            if infos != []: informations.append(infos)
-        return informations
-
+    def getAvailableInfos(self, response, classes):
+        texts_list, final_texts = [], set()
+        div_children, new_selectors = [], []
+        parents = self.getParentSelector(response, classes)
+        for div in parents:
+            div_children.extend(div.xpath("descendant::div[not(descendant::div)]")) # select div that doesn't have a div descendant
+        for div in div_children:
+            text = div.get()
+            # clean the texts
+            text = remove_tags(text, which_ones = tags_remove)
+            text = remove_comments(text)
+            text = remove_tags_with_content(text, which_ones= tags_remove_content )
+            # generate a selector from the cleaned text
+            new_selectors.append(Selector(text = text))
+        for selector in new_selectors:
+            texts_list.append(selector.xpath("descendant::text()").getall())
+        for txt in texts_list: # type(txt) = list
+            cleaned_text = [" ".join(x.strip().split()) for x in txt]
+            cleaned_text = [x for x in cleaned_text if self.textNotEmpty(x)]
+            if len(cleaned_text) != 0:
+                final_texts.add(cleaned_text)
+            
+        return list(final_texts)
 
     '''
 
@@ -427,7 +415,6 @@ class GeneralSpider(scrapy.Spider):
         return list({response.urljoin(x) for x in div_imgs})
         
         
-
         
     '''
 
@@ -436,6 +423,30 @@ class GeneralSpider(scrapy.Spider):
     =============================================================================
     
     '''
+
+    '''
+
+    get the selectors that doesn't share childrens from the tag that contains the classes.
+    
+    '''
+    def getParentSelector(self, response, classes):
+        selectors, parents = [], []
+        selector_data, data = [], []
+        for classe in classes:
+            selectors.extend(response.xpath('//*[contains(@class, "' + classe + '")]'))
+        for select in selectors:
+            selector_data.append((select, select.get()))
+        data = [x[1] for x in selector_data]
+
+        for i1 in range(len(selector_data)):
+            not_child = True
+            for i2 in range(len(data)):
+                if (i1 != i2) and (data[i1] in data[i2]):
+                    not_child = False # this selector is a child of some selector in the list
+            if not_child:
+                parents.append(selector_data[i1][0])
+        return parents
+    
 
     '''
 

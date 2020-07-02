@@ -178,3 +178,16 @@ self.titleImg_method_classes[url_base][selected_class] now has a length of 3, th
 Another problem is also sometimes when we select a class name that is usually used, we try to get the div that have exactly the same class name, but in some sites they may change it slighlty depending in the number of images, so we extract all the class names inside the one found ( split by " "), and we try to get the uniq div that contain a class between them.
 
 
+=============================================================
+-------------------------------------------------------------
+			NEW UPDATE  02/06/2020
+-------------------------------------------------------------
+=============================================================
+
+In this update, we extract the available information from the product page, the class selected to identify the informations are from the classes specific to the product page.
+
+Then we search for the divs that don't have div tag as descendant and we extract the data inside it, in that way we can better organise the different section.
+
+
+
+
