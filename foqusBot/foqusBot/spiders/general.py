@@ -7,11 +7,12 @@ from scrapy import Selector
 from urllib.parse import urlparse
 from w3lib.html import remove_tags, remove_tags_with_content, remove_comments
 import re
+import string
 # common_words contain words used frequently by websites
 from foqusBot.common_words import *
 
 # MIN_RATIO is the min ratio where the page is still identified as home or product page
-MIN_RATIO = 0.3
+MIN_RATIO = 0.4
 
 # the number of pages to learn from to extract wich method is used frequently, and wich class is detected in title div method ( for images)
 LEARN_IMG_NB_PAGE = 30
@@ -207,7 +208,10 @@ class GeneralSpider(scrapy.Spider):
         
         
         image_classes = [x for x in product_classes if self.shareWithList(x, images_identifiers)]
+        # get info classes with uniq associated div
         infos_classes = [x for x in product_shared if self.shareWithList(x, infos_identifiers)]
+        infos_classes = [x for x in infos_classes if len(response.xpath('//*[contains(@class, "' + x + '")]')) == 1]
+
         title_classes = [x for x in product_classes if self.shareWithList(x, title_identifiers)]
         prices_classes = [x for x in product_classes if self.shareWithList(x, prices_identifiers)]
 
@@ -261,24 +265,39 @@ class GeneralSpider(scrapy.Spider):
         return [ response.urljoin(x) for x in images] # get the absolute urls
 
     '''
-
+    
     Get the title of the product in the page.
-    First we search for the h1 tags, as usually it contains the title.
-    if we have h1 tags we return the text inside the first one.
-    if not we search for the title using a list of classes related to product and title.
+    First we will try to get the title from the class name,
+    if it is empty then we will return the first text inside h1 tag.
     
     '''
     def getTitle(self, response, classes):
+        title_selectors, title_div_selectors = [], []
+        title_datas = set()
+        for classe in classes:
+            title_selectors.extend(response.xpath('//*[contains(concat(" " , @class, " "), " ' + classe + ' ")]'))
+
+        for selector in title_selectors:
+            divs = selector.xpath("descendant::div[not(descendant::div)]")
+            if len(divs) != 0:
+                title_div_selectors.extend(divs)
+            else:
+                title_div_selectors.append(selector)
+                
+        for selector in title_div_selectors:
+            t = selector.css("h1")
+            if len(t) > 0: return remove_tags(t.get()) # if we find a h1 tag inside the title classes then we return its content directly
+            
+            title_datas.add(remove_tags(selector.get()))
+
+        title_datas = {" ".join(x.strip().split()) for x in title_datas}
+        title_datas = [x for x in title_datas if self.textNotEmpty(x)]
+        if len(title_datas) > 0: # if we have collected data from classes then return the first one
+            return title_datas[0]
+        
         h1_title = response.css("h1") # usually title written in h1
         if len(h1_title) > 0:
             return remove_tags(h1_title.get())
-        else:
-            titles = set()
-            for classe in classes:
-                titles.add(response.xpath('//*[contains(concat(" " , @class, " "), " ' + classe + ' ")]')[0].xpath("text()").get())
-        if len(titles) == 1:
-            return list(titles)[0]
-        return list(titles)
 
 
 
@@ -321,7 +340,11 @@ class GeneralSpider(scrapy.Spider):
             
         return list(final_texts)
 
+    '''
 
+    Get the prices from the element that have specific class name 
+
+    '''
     def getPriceFromClasses(self, response, classes):
         price_selectors, price_div_selectors = [], []
         price_datas = set()
@@ -338,7 +361,7 @@ class GeneralSpider(scrapy.Spider):
         for selector in price_div_selectors:
             price_datas.add(remove_tags(selector.get()))
         price_datas = {" ".join(x.strip().split()) for x in price_datas}
-        price_datas = [x for x in price_datas if self.textNotEmpty(x)]
+        price_datas = [x for x in price_datas if (self.textNotEmpty(x) and self.isValidPrice(x))]
         return price_datas
 
     '''
@@ -464,7 +487,13 @@ class GeneralSpider(scrapy.Spider):
 
     '''
 
-    get the selectors that doesn't share childrens from the tag that contains the classes.
+    Get the selectors that doesn't share childrens from the tag that contains the classes.
+
+    for part (1), the parameter classes is a list of class names that are resulted from splitting the whole class name by
+    space, when we search for elements that contains those class names, we may get many same element, but they are represented
+    as different selector, for example if classes = ['a', 'b'], and we have a div : <div class = 'a b' >
+    then we will have these div two times, one for a and another for b, so the part (1) is to make a uniq list of selectors,
+    if it is not uniq the method will consider this element to be its own child.
     
     '''
     def getParentSelector(self, response, classes):
@@ -472,6 +501,10 @@ class GeneralSpider(scrapy.Spider):
         selector_data, data = [], []
         for classe in classes:
             selectors.extend(response.xpath('//*[contains(concat(" " , @class, " "), " ' + classe + ' ")]'))
+        # explenation of this part in method documentation (1)
+        classes_selectors = {x.xpath("@class").get() for x in selectors} # get the set of classes classe
+        selectors = [response.xpath("//*[@class = '" + x + "']")[0] for x in classes_selectors] # get uniq selectors
+        ##
         for select in selectors:
             selector_data.append((select, select.get()))
         data = [x[1] for x in selector_data]
@@ -500,8 +533,10 @@ class GeneralSpider(scrapy.Spider):
 
     
     """
+
     return the xpath query for all links with the condition to not contain the words in the common word list
     NOTE : links maybe relative so shouldn't check for base url before the join
+
     """
     def getXpathForLinks(self, response):
         xpath_query = "//a["
@@ -524,14 +559,18 @@ class GeneralSpider(scrapy.Spider):
         return base
 
     """
+
     getUrlNetloc get the net location from the url
+
     """
     def getUrlNetloc(self, url):
         return urlparse(url).netloc
         
 
     """
+
     A function that check if we had common words in class_name and words in word_list.
+
     """
     def shareWithList(self, class_name, word_list):
         for x in word_list:
@@ -540,7 +579,9 @@ class GeneralSpider(scrapy.Spider):
         return False
 
     """
+
     check if the url is a valid url, ie not image, pdf ... url
+
     """
     def isValidUrl(self, url):
         # valid extension for web page
@@ -555,7 +596,9 @@ class GeneralSpider(scrapy.Spider):
         return False
 
     """
+
     return true if the text is not empty, that it contains other caracters then the listed in emptyList
+
     """
     def textNotEmpty(self, x):
         emptyList = [" ", "\n", "\t", ".", ",", ";", "\r"]
@@ -577,3 +620,14 @@ class GeneralSpider(scrapy.Spider):
             else:
                 filtered_links.add(x)
         return filtered_links
+
+    """
+
+    Check that the price is valid, doesn't contain letters.
+
+    """
+    def isValidPrice(self, price):
+        for x in string.ascii_letters:
+            if x in price:
+                return False
+        return True
