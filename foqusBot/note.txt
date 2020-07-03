@@ -180,13 +180,26 @@ Another problem is also sometimes when we select a class name that is usually us
 
 =============================================================
 -------------------------------------------------------------
-			NEW UPDATE  02/06/2020
+			NEW UPDATE  02/07/2020
 -------------------------------------------------------------
 =============================================================
 
 In this update, we extract the available information from the product page, the class selected to identify the informations are from the classes specific to the product page.
 
 Then we search for the divs that don't have div tag as descendant and we extract the data inside it, in that way we can better organise the different section.
+
+
+=============================================================
+
+			Update 03/07/2020
+
+=============================================================
+
+In this update we have fixed the method to get the parents selectors, sometimes it didn't work because we get the same div twice in the selectors list, so the program will treat them as children.
+
++ We have changed slightly the method to extract the title, now we search for h1 tag inside element of specific classes, if we can't find one, we search for the title based on the class name, if not we return the text inside the first h1 tag.
+
++ Add method to extract the price of the product based on the class name.
 
 
 
