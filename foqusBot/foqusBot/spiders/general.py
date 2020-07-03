@@ -14,7 +14,7 @@ from foqusBot.common_words import *
 MIN_RATIO = 0.3
 
 # the number of pages to learn from to extract wich method is used frequently, and wich class is detected in title div method ( for images)
-LEARN_IMG_NB_PAGE = 20
+LEARN_IMG_NB_PAGE = 30
 
 class GeneralSpider(scrapy.Spider):
     name = 'generalFoqus'
@@ -203,16 +203,21 @@ class GeneralSpider(scrapy.Spider):
         method = ""
         nb_pages, ratio_first_method = sum(self.methods_stat[url_base]), 0
         product_classes = [x for x in product_shared if self.shareWithList(x, product_identifiers)]
-        product_classes = [x for x in product_classes if len(response.xpath('//*[contains(@class, "'+x+'")]')) == 1]
+        product_classes = [x for x in product_classes if len(response.xpath('//*[contains(@class, "' + x + '")]')) == 1]
         
         
         image_classes = [x for x in product_classes if self.shareWithList(x, images_identifiers)]
         infos_classes = [x for x in product_shared if self.shareWithList(x, infos_identifiers)]
         title_classes = [x for x in product_classes if self.shareWithList(x, title_identifiers)]
+        prices_classes = [x for x in product_classes if self.shareWithList(x, prices_identifiers)]
+
+        print("\n product shared = ", product_shared)
+        print("\n infos classes = ", infos_classes)
         
         images = self.getImgsFromClasses(response ,image_classes) # get the images
         titles = self.getTitle(response, title_classes)
         infos = self.getAvailableInfos(response, infos_classes)
+        price = self.getPriceFromClasses(response, prices_classes)
 
         if nb_pages != 0:
             ratio_first_method = self.methods_stat[url_base][0] / nb_pages
@@ -233,7 +238,7 @@ class GeneralSpider(scrapy.Spider):
             
             stat = {}
         return {"url" : response.url,"images" : images, "titles" : titles,
-                "infos" : infos, "method":method, "stat":stat}
+                "infos" : infos, "price" : price, "method":method, "stat":stat}
         
     '''
 
@@ -244,13 +249,13 @@ class GeneralSpider(scrapy.Spider):
     def getImgsFromClasses(self, response, classes):
         images = set()
         for classe in classes:
-            imgs = set(response.css("." + classe)[0].xpath('descendant::img/@src').getall())
+            imgs = set(response.xpath('//*[contains(concat(" " , @class, " "), " ' + classe + ' ")]')[0].xpath('descendant::img/@src').getall())
             images = images.union(imgs)
 
         # in some site, the url is not in a src attribute.
         if (len(images) == 0 and len(classes) != 0):
             for classe in classes:
-                imgs = response.css("." + classe)[0].xpath("descendant::img").getall()
+                imgs = response.xpath('//*[contains(concat(" " , @class, " "), " ' + classe + ' ")]')[0].xpath("descendant::img").getall()
                 images = images.union(self.extractUrlFromImgs(imgs))
             
         return [ response.urljoin(x) for x in images] # get the absolute urls
@@ -270,21 +275,34 @@ class GeneralSpider(scrapy.Spider):
         else:
             titles = set()
             for classe in classes:
-                titles.add(response.css("." + classe)[0].xpath('text()').get())
+                titles.add(response.xpath('//*[contains(concat(" " , @class, " "), " ' + classe + ' ")]')[0].xpath("text()").get())
         if len(titles) == 1:
             return list(titles)[0]
         return list(titles)
 
 
 
-    ### test ###
+    '''
+
+    Function to get the available product informations in the page, it takes the classes that
+    have the infos identifiers inside it from the classes specific to product page.
+    By using the method getParentSelector, we get the selectors where no one is the child of another one.
+    We clean the html inside those selectors by removing script and style content, and remove some tags.
+    Transform the resulted html text to scrapy selectors.
+    Then we break those selectors into smaller divs selector and we extract those informations.
+    
+    '''
 
     def getAvailableInfos(self, response, classes):
         texts_list, final_texts = [], set()
         div_children, new_selectors = [], []
         parents = self.getParentSelector(response, classes)
         for div in parents:
-            div_children.extend(div.xpath("descendant::div[not(descendant::div)]")) # select div that doesn't have a div descendant
+            div_without = div.xpath("descendant::div[not(descendant::div)]")
+            if len(div_without) != 0:
+                div_children.extend(div_without) # select div that doesn't have a div descendant
+            else:
+                div_children.append(div)
         for div in div_children:
             text = div.get()
             # clean the texts
@@ -299,9 +317,29 @@ class GeneralSpider(scrapy.Spider):
             cleaned_text = [" ".join(x.strip().split()) for x in txt]
             cleaned_text = [x for x in cleaned_text if self.textNotEmpty(x)]
             if len(cleaned_text) != 0:
-                final_texts.add(cleaned_text)
+                final_texts.add(tuple(cleaned_text))
             
         return list(final_texts)
+
+
+    def getPriceFromClasses(self, response, classes):
+        price_selectors, price_div_selectors = [], []
+        price_datas = set()
+        for classe in classes:
+            price_selectors.extend(response.xpath('//*[contains(concat(" " , @class, " "), " ' + classe + ' ")]'))
+
+        for selector in price_selectors:
+            divs = selector.xpath("descendant::div[not(descendant::div)]")
+            if len(divs) != 0:
+                price_div_selectors.extend(divs)
+            else:
+                price_div_selectors.append(selector)
+
+        for selector in price_div_selectors:
+            price_datas.add(remove_tags(selector.get()))
+        price_datas = {" ".join(x.strip().split()) for x in price_datas}
+        price_datas = [x for x in price_datas if self.textNotEmpty(x)]
+        return price_datas
 
     '''
 
@@ -433,7 +471,7 @@ class GeneralSpider(scrapy.Spider):
         selectors, parents = [], []
         selector_data, data = [], []
         for classe in classes:
-            selectors.extend(response.xpath('//*[contains(@class, "' + classe + '")]'))
+            selectors.extend(response.xpath('//*[contains(concat(" " , @class, " "), " ' + classe + ' ")]'))
         for select in selectors:
             selector_data.append((select, select.get()))
         data = [x[1] for x in selector_data]

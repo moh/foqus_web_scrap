@@ -14,7 +14,7 @@ product_identifiers = ["product", "produit"]
 images_identifiers = ["image", "gallery", "img", "ima", "thumb"]
 
 # list of words to identify classes related to product informations
-infos_identifiers = ["details", "descr", "info", "summary"]
+infos_identifiers = ["details", "descr", "info", "summary", "value", "content"]
 
 # list of words to identify classes related to product prices
 prices_identifiers = ["price", "prix"]
@@ -28,7 +28,7 @@ tag_info = ["p", "span", "li", "h3", "h2"]
 
 
 # tag to be removed
-tags_remove = ("span", "strong")
+tags_remove = ("span", "strong", "a")
 
 # tag to be removed with its content
 tags_remove_content = ("script", "style")
