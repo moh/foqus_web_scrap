@@ -202,6 +202,8 @@ class GeneralSpider(scrapy.Spider):
     def getProductInfo(self, response, product_shared):
         url_base = self.getUrlBase(response.url)
         method = ""
+        ids = response.xpath("//@id").getall() # get all the id in the document
+        
         nb_pages, ratio_first_method = sum(self.methods_stat[url_base]), 0
         product_classes = [x for x in product_shared if self.shareWithList(x, product_identifiers)]
         product_classes = [x for x in product_classes if len(response.xpath('//*[contains(@class, "' + x + '")]')) == 1]
@@ -211,6 +213,7 @@ class GeneralSpider(scrapy.Spider):
         # get info classes with uniq associated div
         infos_classes = [x for x in product_shared if self.shareWithList(x, infos_identifiers)]
         infos_classes = [x for x in infos_classes if len(response.xpath('//*[contains(@class, "' + x + '")]')) == 1]
+        infos_ids = [x for x in ids if self.shareWithList(x, infos_identifiers)]
 
         title_classes = [x for x in product_classes if self.shareWithList(x, title_identifiers)]
         prices_classes = [x for x in product_classes if self.shareWithList(x, prices_identifiers)]
@@ -220,7 +223,8 @@ class GeneralSpider(scrapy.Spider):
         
         images = self.getImgsFromClasses(response ,image_classes) # get the images
         titles = self.getTitle(response, title_classes)
-        infos = self.getAvailableInfos(response, infos_classes)
+        infos = self.getAvailableInfos(response, infos_classes, ids) # get the infos by class and ids.
+        
         price = self.getPriceFromClasses(response, prices_classes)
 
         if nb_pages != 0:
@@ -304,7 +308,7 @@ class GeneralSpider(scrapy.Spider):
     '''
 
     Function to get the available product informations in the page, it takes the classes that
-    have the infos identifiers inside it from the classes specific to product page.
+    have the infos identifiers inside it from the classes and ids specific to product page.
     By using the method getParentSelector, we get the selectors where no one is the child of another one.
     We clean the html inside those selectors by removing script and style content, and remove some tags.
     Transform the resulted html text to scrapy selectors.
@@ -312,10 +316,10 @@ class GeneralSpider(scrapy.Spider):
     
     '''
 
-    def getAvailableInfos(self, response, classes):
+    def getAvailableInfos(self, response, classes, ids):
         texts_list, final_texts = [], set()
         div_children, new_selectors = [], []
-        parents = self.getParentSelector(response, classes)
+        parents = self.getParentSelector(response, classes, ids)
         for div in parents:
             div_without = div.xpath("descendant::div[not(descendant::div)]")
             if len(div_without) != 0:
@@ -338,7 +342,9 @@ class GeneralSpider(scrapy.Spider):
             if len(cleaned_text) != 0:
                 final_texts.add(tuple(cleaned_text))
             
-        return list(final_texts)
+        return final_texts
+
+        
 
     '''
 
@@ -488,22 +494,27 @@ class GeneralSpider(scrapy.Spider):
     '''
 
     Get the selectors that doesn't share childrens from the tag that contains the classes.
+    Also we will extract the informations using the id.
 
     for part (1), the parameter classes is a list of class names that are resulted from splitting the whole class name by
     space, when we search for elements that contains those class names, we may get many same element, but they are represented
     as different selector, for example if classes = ['a', 'b'], and we have a div : <div class = 'a b' >
     then we will have these div two times, one for a and another for b, so the part (1) is to make a uniq list of selectors,
     if it is not uniq the method will consider this element to be its own child.
+    we have added the if statement "if x != None" because we may have a div with id and no classes.
     
     '''
-    def getParentSelector(self, response, classes):
+    def getParentSelector(self, response, classes, ids):
         selectors, parents = [], []
         selector_data, data = [], []
         for classe in classes:
             selectors.extend(response.xpath('//*[contains(concat(" " , @class, " "), " ' + classe + ' ")]'))
+
+        for ide in ids:
+            selectors.extend(response.xpath("//*[@id = '" + ide + "']")) # select by id
         # explenation of this part in method documentation (1)
-        classes_selectors = {x.xpath("@class").get() for x in selectors} # get the set of classes classe
-        selectors = [response.xpath("//*[@class = '" + x + "']")[0] for x in classes_selectors] # get uniq selectors
+        classes_selectors = {x.xpath("@class").get() for x in selectors} # get the set of classes classe, we may get None for div with id and no classes
+        selectors = [response.xpath("//*[@class = '" + x + "']")[0] for x in classes_selectors if x != None] # get uniq selectors
         ##
         for select in selectors:
             selector_data.append((select, select.get()))
