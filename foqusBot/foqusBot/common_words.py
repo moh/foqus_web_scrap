@@ -3,7 +3,7 @@ common_words = ["contact", "faq", "wishlist", "wish_list", "my-account", "login"
                     "privacy", "policy", "customer-service", "product-support", "terms-conditions", "about-us", "setting",
                 "add-to-cart", "remove_item", "help", "customer", "product-reviews"
                 , "productListView", "order=", "compte", "plan-site", "account"
-                , "giftcard"]
+                , "giftcard", "panier", "commande"]
 
 
 # list of words to identify the classes related to product

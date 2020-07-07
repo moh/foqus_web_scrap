@@ -1,11 +1,14 @@
 # -*- coding: utf-8 -*-
 import os
 import scrapy
-import csv
 from scrapy.http import Request
 from scrapy import Selector
+from scrapy import signals
+from pydispatch import dispatcher
 from urllib.parse import urlparse
 from w3lib.html import remove_tags, remove_tags_with_content, remove_comments
+import csv
+import json
 import re
 import string
 # common_words contain words used frequently by websites
@@ -26,9 +29,6 @@ class GeneralSpider(scrapy.Spider):
     url_classes : dict that have keys the base of the website, and value two lists, that
     represents the list of class of home page, and the list of class of product page
 
-    shared_product_info : dict that have keys the base of the website, and value the shared part of product
-                        informations (usually it is related to general information about the website)
-
     methods_stat : dict that have keys the base of the website, and value a list that represent the number of time
     each method (of extracting images) is used on the website. ( first number represents the first method ( class
     name method), second number represents the second method ( title div method ))
@@ -41,13 +41,32 @@ class GeneralSpider(scrapy.Spider):
     '''
     def __init__(self, *a, **kw):
         super(GeneralSpider, self).__init__(*a, **kw)
+        dispatcher.connect(self.spider_quit, signals.spider_closed)
         self.url_home_products = dict()
         self.url_classes = dict()
-        self.shared_product_info = dict()
         self.methods_stat = dict()
         self.titleImg_method_classes = dict()
         self.order = 0
-        
+        self.getStoredData()
+
+    '''
+
+    update the spider attributes from previous scraping, if the file INFORESUME.json already exist 
+    
+    '''
+    def getStoredData(self):
+        try:
+            with open("INFORESUME.json", "r") as f:
+                print("\n !!!!!!!!!!!!!!!!!!!!!!!!!\n Getting data \n !!!!!!!!!!!!!!!!!!!!!!! \n")
+                data = json.loads(f.read())
+                self.url_home_products = data["url_home_products"]
+                self.url_classes = data["url_classes"]
+                self.methods_stat = data["methods_stat"]
+                self.titleImg_method_classes = data["titleImg_method_classes"]
+                self.order = data["order"]
+                self.url_classes = {x : [set(y) for y in self.url_classes[x]] for x in self.url_classes}
+        except FileNotFoundError:
+            pass
 
     '''
     Here we override the method start_requests to start with the request of the home page,
@@ -642,3 +661,19 @@ class GeneralSpider(scrapy.Spider):
             if x in price:
                 return False
         return True
+
+    """
+
+    METHOD to be called when the spider will close
+    
+    """
+    def spider_quit(self, spider):
+        url_classes = {x : [list(y) for y in self.url_classes[x]] for x in self.url_classes }
+        data = {"url_home_products":self.url_home_products, "url_classes" : url_classes,
+                "methods_stat":self.methods_stat,
+                "titleImg_method_classes": self.titleImg_method_classes, "order":self.order}
+        print("\n ^^^^^^^^^^^^^^ \n STORING TO FILE \n ^^^^^^^^^^^^^^ \n")
+        print("data = ", data)
+        with open("INFORESUME.json", "w") as f:
+            json.dump(data, f)
+        print("\n ^^^^^^^^^^^^^^ \n DATA STORED, CLOSE SPIDER  \n ^^^^^^^^^^^^^^^ \n")

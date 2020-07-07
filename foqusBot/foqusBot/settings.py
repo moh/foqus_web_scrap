@@ -14,6 +14,13 @@ BOT_NAME = 'foqusBot'
 SPIDER_MODULES = ['foqusBot.spiders']
 NEWSPIDER_MODULE = 'foqusBot.spiders'
 
+# password for tor, to change the ip
+TOR_PASSWORD = "foqusprivoxy"
+
+# number of request to tell tor to change the ip
+# NOTE : Tor may get the same circuit, so same ip
+TOR_NUMBER_REQUEST_CHANGE_IP = 20
+
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
 USER_AGENT = 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:77.0) Gecko/20100101 Firefox/77.0'
@@ -27,7 +34,7 @@ ROBOTSTXT_OBEY = True
 # Configure a delay for requests for the same website (default: 0)
 # See https://docs.scrapy.org/en/latest/topics/settings.html#download-delay
 # See also autothrottle settings and docs
-#DOWNLOAD_DELAY = 1
+DOWNLOAD_DELAY = 0.05
 # The download delay setting will honor only one of:
 #CONCURRENT_REQUESTS_PER_DOMAIN = 16
 #CONCURRENT_REQUESTS_PER_IP = 16
@@ -46,6 +53,13 @@ ROBOTSTXT_OBEY = True
 
 # Enable or disable spider middlewares
 # See https://docs.scrapy.org/en/latest/topics/spider-middleware.html
+
+# add part to change ip
+DOWNLOADER_MIDDLEWARES = {
+    'foqusBot.middlewares.CustomProxyMiddleware': 350,
+    'scrapy.downloadermiddlewares.httpproxy.HttpProxyMiddleware': 400,
+}
+
 #SPIDER_MIDDLEWARES = {
 #    'foqusBot.middlewares.FoqusbotSpiderMiddleware': 543,
 #}
@@ -70,7 +84,7 @@ ROBOTSTXT_OBEY = True
 
 # Enable and configure the AutoThrottle extension (disabled by default)
 # See https://docs.scrapy.org/en/latest/topics/autothrottle.html
-#AUTOTHROTTLE_ENABLED = True
+AUTOTHROTTLE_ENABLED = True
 # The initial download delay
 #AUTOTHROTTLE_START_DELAY = 5
 # The maximum download delay to be set in case of high latencies

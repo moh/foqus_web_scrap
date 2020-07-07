@@ -6,6 +6,13 @@
 # https://docs.scrapy.org/en/latest/topics/spider-middleware.html
 
 from scrapy import signals
+from scrapy.utils.project import get_project_settings
+
+from w3lib.http import basic_auth_header
+from random_user_agent.user_agent import UserAgent
+
+from stem import Signal
+from stem.control import Controller
 
 
 class FoqusbotSpiderMiddleware:
@@ -101,3 +108,24 @@ class FoqusbotDownloaderMiddleware:
 
     def spider_opened(self, spider):
         spider.logger.info('Spider opened: %s' % spider.name)
+
+
+class CustomProxyMiddleware(object):
+    user_rotator = UserAgent()
+    nb_requests = 0
+    settings = get_project_settings()
+
+    # set new ip
+    def _set_new_ip(self):
+        controller = Controller.from_port(port = 9051)
+        controller.authenticate(password = self.settings.get("TOR_PASSWORD"))
+        controller.signal(Signal.NEWNYM)
+        
+    def process_request(self, request, spider):
+        if self.nb_requests == self.settings.get("TOR_NUMBER_REQUEST_CHANGE_IP"):
+            print("\n----------- TOR GETTING NEW IDENTITY ----------\n")
+            self.nb_requests = 0
+            request.headers["User-Agent"] = self.user_rotator.get_random_user_agent()
+            self._set_new_ip()
+        self.nb_requests += 1    
+        request.meta['proxy'] = "127.0.0.1:8118"

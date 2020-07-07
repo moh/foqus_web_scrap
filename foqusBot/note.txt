@@ -202,5 +202,38 @@ In this update we have fixed the method to get the parents selectors, sometimes 
 + Add method to extract the price of the product based on the class name.
 
 
+=============================================================
+
+			Update 06/07/2020
+
+=============================================================
+
+Add Pause/Resume feature to the spider, to enable that we should run the command : 
+
+    $ scrapy crawl generalFoqus -o lapbreak.json --set JOBDIR=testbreak
+
+
+JOBDIR is the directory where scrapy will store the record.
+Scrapy don't store automatically the variable that we use to identify page, and extract the data, so we need to write that in the program, this what the method getStoredData do, it read the written data in the json file "INFORESUME.json", and initialise the variable after the pause.
+Also the method spider_quite is called when we press ctrl+C ( only one time should be pressed to work properly !!!), it stores the variable in "INFORESUME.json" when we pause the program.
+
+
+=============================================================
+
+			Update 07/07/2020
+
+=============================================================
+
+This update is to change the ip and hide our idendity while scraping to avoid the spider being blocked by the host website.
+To change the ip we use Tor, the library required to change the ip for each x requests is called "stem".
+Two variables have been added to the setting.py file to control the connection with tor, 
+TOR_PASSWORD is the password to ask tor to get a new identity, and TOR_NUMBER_REQUEST_CHANGE_IP that is the number of request to ask tor to change its identity.
+
+NOTE : When tor change its identity we may still get the same ip address, for few times before -----   getting a new one, so it is better to keep TOR_NUMBER_REQUEST_CHANGE_IP small.
+
+
+
+
+
 
 
