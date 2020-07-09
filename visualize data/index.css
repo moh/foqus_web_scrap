@@ -1,0 +1,92 @@
+body{
+    margin: 0px;
+    font-family: "Lucida Console", Courier, monospace;
+
+}
+
+#settingPart{
+    display: none;
+}
+
+#selectfile{
+    padding-left: 20px;
+}
+
+#analysefile{
+    display: block;
+    margin-top: 10px;
+    cursor: pointer;
+}
+
+#showdata{
+    margin-left: 20px;
+}
+
+
+.tagList{
+    padding: 10px;
+    display: inline-block;
+}
+
+
+.tagName{
+    padding: 5px;
+    background-color: #cac9c9;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.tagName:hover{
+    background-color: #b5b2b2;
+}
+
+
+.product{
+    padding: 10px;
+    border-bottom: 1px solid;
+}
+
+
+.productTitle{
+    margin : 10px;
+}
+
+.productImagesDiv{
+    margin-top: 20px;
+    margin-bottom: 20px;
+}
+
+
+img{
+    width: 100px;
+    height: 100px;
+}
+
+button{
+    cursor: pointer;
+    padding: 5px;
+}
+
+.productImage{
+    display: inline-block;
+    cursor: pointer;
+}
+
+.productCategory{
+    display: inline-block;
+    padding: 10px;
+    border-radius: 5px;
+    background-color: #b5b2b2;
+}
+
+.saveChange{
+    display: block;
+    cursor: pointer;
+    padding: 5px;
+    margin-top: 10px;
+}
+
+#settingPart{
+    padding: 10px;
+    margin-top: 20px;
+}

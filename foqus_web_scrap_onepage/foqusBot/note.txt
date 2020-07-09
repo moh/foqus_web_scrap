@@ -1,0 +1,239 @@
+apify
+micro services python
+piplines dans Azure
+
+Google database openimage v4 
+
+
+==================================
+NOTE
+==================================
+
+---------------------------------------------------
+First generic test method on tryn.fit - 17/06/2020:
+---------------------------------------------------
+
+First test on extracting links and identifying product and page link by the bot by itself, the method consists of : 
+
+1 - Remove header and footer element, since they contain usually links related to website contact, faq ... 
+2 - Get product links by extracting the element "a" that has "img" as a child, this method works on "tryn.fit"
+3 - Get other links, and treat them as page links.
+4 - Call the product page and check if it is really a product page, the verification of product page is based on the presence of a class ( this is only for tryn.fit ).
+5 - if it is a product page, then extract data.
+6 - not a product page, then yield a request to be treated as a normal page.
+
+The PROBLEM that we encountered in this approach is that the bot keep clicking on link of format ".../?add_to_wishlist=1233", this link is used to add an item to "wish list", so a link that neither page of product or set of products.
+
+
+Proposed SOLUTION : 
+===================
+
+Most websites have links to contact, faq, whishlist, login ... so the proposed solution is to form a list of common words that are used by websites to access those different section, and then get the links that doesn't contain any words.
+
+ + Will filter many links from many websites, as they use the same words.
+
+ - A change in the website link will make this feature useless.
+
+ - Require large list of words to be efficient.
+
+
+---------------------------------------------
+Second generic test on tryn.fit - 18/06/2020:
+---------------------------------------------
+
+This test is to identify the nature of the page we are scraping, in this project we have only two pages that we are interested in, home page : where there is a list of products without much details, and product page where there is the details about one product, and lists of other related products ( in most sites ).
+
+This test takes a csv file as input, the rows represents the sites that we want to crawl, and each rows have two links, the first link represent a home link, and the second link represent a product page link of any product. 
+
+NOTE : For the home page, it is not necessarily the home page like "https://tryn.fit/", 
+------ the best options for the home page, is a page that share its form and design with so many other pages, for example : "https://tryn.fit/categorie-produit/chemises-homme/"
+
+
+How it works : 
+--------------
+1 - the program gets the page of the home page, then extract all the classes in the home page.
+2 - Then it gets the page of the product page, and extract all the classes in the product pages.
+3 - we extract the classes that may be specific only to the home page ( classes of home page - classes of product page)
+4 - we extract the classes that may be specific only to the product pages ( classes of product pages - classes of home page )
+5 - To identify if a page is either a home or product page, we extract the classes in that page,
+then we match the classes with the lists of home and product page.
+6 - if the result of the match in both pages is less then MIN_RATIO then the page is neither a product nor a home page.
+
+This method has worked perfectly on tryn.fit
+Worked on many sites.
+
+
+NOTE TO update : To identify the product page, we should not only take into account the url base, but ---------------- also the whole netloc.
+
+
+Third test - 25/06/2020:
+------------------------
+
+This test contains many change that will improve the efficency and generality of the bot.
+
+First part, for identifying a home or product page, we no longer remove the footer and the header page, because it caused a problem in the site : https://www.imparfaiteparis.com/shop/filters/price/:50/ 
+
+And the links in those two section will be filtered by the common_words, and there is a high chance that the program will not identify those page neither as product nor home page, so it will stop there.
+
+::::: A problem that rised from this techniq is that now most of the page look like a home page ( even a product page !), in term of home ratio. But this ratio will decrease as the program identify more home and product page.
+
+ -+- In yield request from the parse function, we assign a priority to each set of requests, so the request from the same page will have same priority, and the sets of links that is early will be excuted first. This method helps to not go in a loop of pages that are all home pages and that contains products that we have scraped before, especially for the page that contains filter links. (as we have encoutred in the site : jadium).
+
+
+Second part, for extracting the images and information from product pages, 
+We filter the classes that contains some specific words to represent a product, then for each data that we want to extract we filter those classes with a list of word related to the data we want to extract.
+For the title, usually the title is written in <h1>, and it is the only text written inside h1 tag in the whole page.
+
+::::: Some problem resulted in that approch, some sites doesn't write the name clearly as we expect, so the classes that contains the image doesn't have image, picture ... in its name !!
+ 
+
+NOTE : In next version we will continue to extract and clean extracted data from regular site.
+NOTE : after that we will try to get a solution for the problem stated above.
+
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ATTENTION ATTENTION ATTENTION
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Sometime the program is identifying a product page as a home page, when the differences isn't really huge.
+NOTE TO UPDATE : we should look at the link of product page, sometimes the links of product pages contain a specific word !
+
+!!!!!!!!!!!!!!!!!!!!===============================!!!!!!!!!!!!!!!!!!!!!!!
+				CHANGE 
+!!!!!!!!!!!!!!!!!!!!===============================!!!!!!!!!!!!!!!!!!!!!!!
+
+
+In the site "www.serie-noire.com", when we get the data, the images doesn't have a src attribute ( strange ), they do "have data-big-src", ... but to not deal with specific names, we extract the links in the body of the image tag, ONLY WHEN EXTRACTING SRC give 0 results.
+
+
+!!!!!!!!!!!!!!!!!!!================================!!!!!!!!!!!!!!!!!!!!!!!
+				CHANGE
+!!!!!!!!!!!!!!!!!!!================================!!!!!!!!!!!!!!!!!!!!!!!
+
+We no longer update the classes of home or product page, because as we have removed the header and footer, the home page share so many classes with any other page on the website, that sometimes home_ratio is more then product_ratio in a product page.
+
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Test 29/06/2020
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Some sites doesn't have a clear name of the classes that contains images or informations, in this update, in case the first method didn't work to collect images, we try to get the images from the div that contain the title, or the h1 tag. In case we have many h1 tag, we collect the data inside and check if they are the same, if it is the case we take the div of the last h1 ( because it should refer to actual title as in www.lapiscine-paris.fr)
+
+we start by going up in the parents of the title till we found one that contains more images then 1 ( we may write a higher number in case the div of the title contains some logo or small images), then we go in the children of that parent to get the div that contains the image.
+
+This method of extracting images worked on boutique.guydemarle.com and www.lapiscine-paris.fr, however we still find some exceptions where the method won't work, for example in the page https://boutique.guydemarle.com/pistoles-de-chocolat/249-pistoles-de-chocolat-blanc-34-zephyr-1-kg-cacao.html we have two h1 tag, the first one contain "Pistoles de chocolat blanc 34% Zephyr 1 kg" and the second one "Pistoles de chocolat blanc 34% Zephyr" so they are different for the program, so many titles.
+
+Also another type of problem is for example in the page https://boutique.guydemarle.com/moules-silicone-guy-demarle/1806-offre-les-ustensiles-malins-spatule-bleu.html we have many h1 tag that contains the title of the product, and the titles of each part of the product.
+
+
+A proposed solution : 
+=====================
+if we have any h1 tag, we will take the first h1 tag as it should be the one related to the main product.
+and we will go through the descendant of the parent, if we go through a child that have images more then 2 and less then 10 then we selects this images.
+
+
+NOTE :::
+========
+
+In the recent change, if we have only one or none image from first method by class name, we proceed to get the images by the second method.
+However some products have only one image, and they are collected correctly by the "class name" method, so using the second method on them will result in assigning the wrong pictures to the wrong products.
+
+
+A proposed solution:
+====================
+
+Try to detect wich method is always being used by the products from that site, and follow the same rule on other pages, as we are working with small websites that will have the same product page template.
+
+Also we can note the classes of the div that are usually used by the second method, and use them after.
+
+
+=====================================================
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	IMPORTANT UPDATE  30 / 06 / 2020
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+=====================================================
+
+In this update, the program is able to analyze which method is being used most of the time on the product of the page and after a fixed number of pages, it will always follow the same method for all the other pages, this number is stored in LEARN_IMG_NB_PAGE, this number should be large in large test to be able to detect correctly the suitable method and classes for each sites, this techniq will also allow us to detect the error in selecting images in the first phase of the program.
+
+Also the program, if we are always in the second method, extracting images from title div, the program will be able to detect the classes that usually are used by this method, it will try to estimate the best class based on the number of pages that have used those classes, and based on a score number that represent the total number of images collected by this class.
+After identifying the suitable class, we will always use this class to extract the images that are related to product in the website.
+This techniq also will let us detect the first error in scraping based on the comparision between the classes used.
+
+
+
+=====================================================
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+			UPDATE
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+=====================================================
+
+In large sites we may have many categories, and it may be impossible to jump from one categorie to another using just links found on product pages, so to solve that we will add many home pages that each is related to a different category, to do that the principal home page ( the one we will learn the classes ) is in the first case, the product page is on the second case, then we can add as many pages as we want to the other pages.
+
+PROBLEMS : 
+----------
+
+in the precedent version we rely on the class name of the class to get the div after, in some site as www.mementomori-shop.com where few divs have a class name. but they do have an id name, so we will add the id to the list related to classes, if the class is None then we use the id ( if it exists ) to identify the div. 
+
+self.titleImg_method_classes[url_base][selected_class] now has a length of 3, the first is the number of the page, the second number is the score and the third is a set of ids related to this class if only it is None.
+
+Another problem is also sometimes when we select a class name that is usually used, we try to get the div that have exactly the same class name, but in some sites they may change it slighlty depending in the number of images, so we extract all the class names inside the one found ( split by " "), and we try to get the uniq div that contain a class between them.
+
+
+=============================================================
+-------------------------------------------------------------
+			NEW UPDATE  02/07/2020
+-------------------------------------------------------------
+=============================================================
+
+In this update, we extract the available information from the product page, the class selected to identify the informations are from the classes specific to the product page.
+
+Then we search for the divs that don't have div tag as descendant and we extract the data inside it, in that way we can better organise the different section.
+
+
+=============================================================
+
+			Update 03/07/2020
+
+=============================================================
+
+In this update we have fixed the method to get the parents selectors, sometimes it didn't work because we get the same div twice in the selectors list, so the program will treat them as children.
+
++ We have changed slightly the method to extract the title, now we search for h1 tag inside element of specific classes, if we can't find one, we search for the title based on the class name, if not we return the text inside the first h1 tag.
+
++ Add method to extract the price of the product based on the class name.
+
+
+=============================================================
+
+			Update 06/07/2020
+
+=============================================================
+
+Add Pause/Resume feature to the spider, to enable that we should run the command : 
+
+    $ scrapy crawl generalFoqus -o lapbreak.json --set JOBDIR=testbreak
+
+
+JOBDIR is the directory where scrapy will store the record.
+Scrapy don't store automatically the variable that we use to identify page, and extract the data, so we need to write that in the program, this what the method getStoredData do, it read the written data in the json file "INFORESUME.json", and initialise the variable after the pause.
+Also the method spider_quite is called when we press ctrl+C ( only one time should be pressed to work properly !!!), it stores the variable in "INFORESUME.json" when we pause the program.
+
+
+=============================================================
+
+			Update 07/07/2020
+
+=============================================================
+
+This update is to change the ip and hide our idendity while scraping to avoid the spider being blocked by the host website.
+To change the ip we use Tor, the library required to change the ip for each x requests is called "stem".
+Two variables have been added to the setting.py file to control the connection with tor, 
+TOR_PASSWORD is the password to ask tor to get a new identity, and TOR_NUMBER_REQUEST_CHANGE_IP that is the number of request to ask tor to change its identity.
+
+NOTE : When tor change its identity we may still get the same ip address, for few times before -----   getting a new one, so it is better to keep TOR_NUMBER_REQUEST_CHANGE_IP small.
+
+
+
+
+
+
+
