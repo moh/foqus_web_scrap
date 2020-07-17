@@ -128,6 +128,7 @@ function search_by_category(event){
 function productToHtml(product, index){
     images = product["images"];
     tags = product["categories"];
+    infos = product["infos"]
     html_text = "\n <div class = 'product' data-index = '" + index + "'>\n<div class = 'productTitle'>" + product["titles"] + "</div>";
     html_text += "\n <div class = 'productUrl'><a href = '" + product["url"] + "' target= '_blank'>" + product["url"]+"</a></div><div class = 'productImagesDiv'>";
     for(var x = 0; x < images.length; x++){
@@ -137,6 +138,12 @@ function productToHtml(product, index){
     for(var x = 0; x < tags.length; x++){
         html_text += "<div class = 'productCategory'>" + tags[x] + "</div>\n";
     }
+    html_text += "</div> \n <div class = 'infos'>";
+    for(var x = 0; x < infos.length; x++){
+        html_text += "<p>" + infos[x] + "</p>\n";
+    }
+    html_text += "<p> ===================================== </p>";
+
     html_text += `</div>
         <p> Category should be seperated by one space </p>
         <input type='text' class = 'changeCategory' />
