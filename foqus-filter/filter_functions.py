@@ -23,6 +23,7 @@ def lapiscine_clean(url):
     l = url.split("/")
     l[-2] = l[-2].replace("small", "large")
     l[-2] = l[-2].replace("medium", "large")
+    l[-2] = l[-2].replace("thickbox", "large")
     # if large is not in the url even after replace, then return false
     if "large" not in l[-2]:
         return False
@@ -39,7 +40,16 @@ def basalt_clean(url):
     except:
         return url
 
-
+def pieces_clean(url):
+    try:
+        l = url.split("=")
+        if l[-1].isnumeric():
+            l[-1] = "250"
+        return '='.join(l)
+    except:
+        return url
 
 imageFilter = {"*" : default_clean, "lapiscine-paris.fr" : lapiscine_clean,
-               "jadium.fr" : lapiscine_clean, "basalt.fr" : basalt_clean}
+               "jadium.fr" : lapiscine_clean, "basalt.fr" : basalt_clean,
+               "serie-noire.com" : lapiscine_clean, "jimmyfairly.com": basalt_clean,
+               "jaqk-store.com" : lapiscine_clean, "pieces.com" : pieces_clean}

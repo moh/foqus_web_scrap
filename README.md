@@ -10,3 +10,8 @@ foqusBot is for scraping a whole site wih all the products inside, it scrapes th
 foqus_we_scrap_onepage is for scraping only the home pages, it take a list of home pages with the categories associated to it, and scrape all the products inside each home page and assign the given categories to them.
 
 visualize data : a javascript program that help us visualize the data and delete images and change categories of the product, and produce a new json file.
+
+
+foqus-filter : a filter for the scraped data, it cleans the collected images and informations, it uses luigi to organise the different tasks.
+
+

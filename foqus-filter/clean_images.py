@@ -48,7 +48,7 @@ class CleanImages(luigi.Task):
         data["images"] = data.progress_apply(lambda row : self.cleanImgs(row["urlBase"], row["images"], rep_imgs), axis = 1)
 
         # for test
-        data["categories"] = "a"
+        #data["categories"] = "a"
         with self.output()[0].open('w') as cleaned_json:
             s = data.to_json(orient = 'records').replace("{", "\n{")
             cleaned_json.write(s)
@@ -64,7 +64,7 @@ class CleanImages(luigi.Task):
             counts = list(Counter(images).values())
             #unique, counts = np.unique(images, return_counts = True)
             # we use set because it is faster to check membership
-            imgRept[x] = set(unique[ind] for ind in range(len(unique)) if counts[ind] >= 2)
+            imgRept[x] = set(unique[ind] for ind in range(len(unique)) if counts[ind] > 2)
         return imgRept
 
     def cleanImgs(self,urlBase, images, imgRept):

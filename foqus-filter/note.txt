@@ -1,0 +1,89 @@
+INFORMATIONS : 
+--------------
+
+This folder contains the different files to clean the scraped data in the json files, it divises the work on 5 tasks, initiate_data.py ---> clean_images.py ---> clean_infos.py ---> classify_products.py 
+ ---> update_model.py
+
+DETAILS INFORMATIONS :
+----------------------
+
+1 - initiate_data.py : this file is responsible of cleaning the wrong products in the json file, it doesn't clean the data inside the products. There is 4 cleaning in this class : 
+
+   1 - cleanByNumber : it removes the products from sites that have less then nbLearn scraped products, the reason is that those data maybe contain false product informations that we won't be able to detect them neither by method nor by class.
+
+   2 - cleanByMethods : it removes the products from sites that have used the wrong method, for example if the most common method used for example.com is 1, then it removes all the products that have method 2 form the site example.com
+
+   3 - cleanByClass : it is specific to the second method, it removes the products that have used a different class. NOTE : it is slow to iterate over all the rows, we should change the way the data is written from the scraped program.
+
+   4 - cleanDuplicate : it removes duplicated products, in some site, the same products may have multiple url, so scrapy won't recognize that it has visited the page before. we can detect that two products are the same by comparing the couple formed of title and images.
+
+ + Output : it outputs two different files, cleanedProducts_lapiscineparis.json that contains the products after the filter, and deletedProducts_lapiscineparis.json that contains the deleted products.
+
+
+2 - clean_images.py : this file clean and filter the images of each site, it contains only one cleaning :
+  
+   1 - CleanImages : it searchs for repeated images then eliminate those images, and it change the url of the image to get large image, to modify the url we must specify a modifier function in filter_functions, and then link it to its urlBase in the dictionnary imageFilter.
+
+ + Output : it outputs one file, cleanImgs_lapiscineparis.json that contains the products with cleaned images.
+
+3 - clean_infos.py : this file clean the informations of the products, it contains only one cleaning : 
+
+   1 - CleanInfos : it search also for repeated informations and clean them.
+
+ + Output : it outputs one file, cleanInfo_lapiscineparis.json that contains the products with cleaned infos ( and cleaned images ).
+
+
+4 - classify_products.py : This file use the trained model in the file "model_classifier.pkl" and predict the catergory of the product and the probability of that prediction, if the probability of the prediction is less then LIMIT_PROBA then the category will be "other", to be classified manually after.
+
++ Output : it outputs one file, categorised_lapiscineparis.json that contains the products with one class prediction and a probability of that prediction.
+
+5 - update_model.py : This file use the predicted data to train the model, it selects the products that have a predict probability of more then UPDATE_PROBA and add those data to TRAINING_DATA.json, and then train the model with those data, and save it to model_classifier.pkl
+
+ADDITIONAL FILE : 
+-----------------
+
+filter_functions.py : this file contains functions to modify the url of the images based on their urlBase, to make it work, we should add the urlBase as a key to imageFilter and the function as the value.
+
+model_classifier.pkl : file that contains the model
+
+TRAINING_DATA.json : json file that contains the training data.
+
+
+HOW IT WORK :
+-------------
+
+Only for cleaning the data : We need to execute the CleanInfos task, by the command " python clean_infos.py CleanInfos --filePath $fileName.json --nbLearn $nbLearn --local-scheduler "
+
+For classifying the products : we need to execute the ClassifyProducts task, by the command " python classify_products.py ClassifyProducts --filePath $fileName.json --nbLearn $nbLearn --local-scheduler "
+
+For updating the model : we need to execute the UpdateModel task, by the command " python update_model.py UpdateModel --filePath $fileName.json --nbLearn $nbLearn --local-scheduler "
+
+$fileName.json is the json file to clean.
+$nbLearn is the number of learning the method and class used by the scrapping program.
+
+
+REQUIREMENT :
+-------------
+
+luigi
+pandas
+numpy
+tqdm to show progress bar
+spacy
+sklearn
+
+
+
+NOTE : 
+======
+
+https://spacy.io/models/fr
+https://stackoverflow.com/questions/13131139/lemmatize-french-text
+
+scpacy to lemmatize french text
+
+
+For word2vec :
+
+https://towardsdatascience.com/how-to-train-the-word2vec-model-24704d842ec3
+

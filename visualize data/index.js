@@ -129,7 +129,7 @@ function productToHtml(product, index){
     images = product["images"];
     tags = product["categories"];
     infos = product["infos"]
-    html_text = "\n <div class = 'product' data-index = '" + index + "'>\n<div class = 'productTitle'>" + product["titles"] + "</div>";
+    html_text = "\n <div class = 'product' data-index = '" + index + "'>\n<div class = 'productTitle'>" + product["title"] + "</div>";
     html_text += "\n <div class = 'productUrl'><a href = '" + product["url"] + "' target= '_blank'>" + product["url"]+"</a></div><div class = 'productImagesDiv'>";
     for(var x = 0; x < images.length; x++){
         html_text += "<div class = 'productImage' data-removed=false ><img src = '" + images[x] + "'/><p></p></div>"; 
