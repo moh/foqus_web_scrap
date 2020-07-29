@@ -127,6 +127,9 @@ function search_by_category(event){
 */
 function productToHtml(product, index){
     images = product["images"];
+    if (images == undefined){
+        images = [];
+    }
     tags = product["categories"];
     infos = product["infos"]
     html_text = "\n <div class = 'product' data-index = '" + index + "'>\n<div class = 'productTitle'>" + product["title"] + "</div>";
@@ -139,10 +142,10 @@ function productToHtml(product, index){
         html_text += "<div class = 'productCategory'>" + tags[x] + "</div>\n";
     }
     html_text += "</div> \n <div class = 'infos'>";
-    for(var x = 0; x < infos.length; x++){
-        html_text += "<p>" + infos[x] + "</p>\n";
-    }
+    html_text += "<p>" + infos + "</p>\n";
     html_text += "<p> ===================================== </p>";
+
+    html_text += "<p> Proba : " + product["prob"] + "</p>\n";
 
     html_text += `</div>
         <p> Category should be seperated by one space </p>
@@ -242,6 +245,10 @@ function saveChange(event){
     }
     data["images"] = image_srcs;
     data["categories"] = new_cat;
+    // if probability is set on this category, then the proba will be equal to 1 after changing manually the category.
+    if (data["prob"] != undefined){
+        data["prob"] = 1.0;
+    }
     json_data[index] = data;
     product.getElementsByClassName("saveText")[0].innerHTML = "Product has been saved";
     console.log(json_data[index]);

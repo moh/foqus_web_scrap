@@ -1,0 +1,7 @@
+Data visualizer is a javascript program that display the scraped ( or filtered ) data, with the title, informations, images, categories and the probabilities.
+
+The data will be filtered using by the categories with the number of products displayed next to the category.
+
+We can delete pictures by clicking on the picture, and we can change the categories by re-writing the categories that we want. To save the changes we need to click on the save button for each modified product. Afet saving the change, the probability of the new categories will became 1, so we can train our model on the new categories.
+
+We can also upload the new modified json.

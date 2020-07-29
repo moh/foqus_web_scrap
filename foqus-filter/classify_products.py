@@ -43,13 +43,18 @@ class ClassifyProducts(luigi.Task):
         # load saved model from model_classifier.pkl
         model = joblib.load("model_classifier.pkl")
 
+        #print(" ----------- combining infos -----------------")
+        #data["allInfo"] = data.progress_apply(lambda row : row["infos"] + " " + row["titleInfo"], axis = 1)
+
         print("----------------------------- Predicting Category ---------------------")
-        data["categories"] = data["titleInfo"].progress_apply(lambda x : self.get_categories(x, vectorizer, model))
+        data["categories"] = data.progress_apply(lambda row : self.get_categories(row, vectorizer, model), axis = 1)
 
         print("----------------------------- Splitting proba and categories --------------------")
         data["prob"] = data["categories"].progress_apply(lambda x : x[0][0])
         data["categories"] = data["categories"].progress_apply(lambda x : [x[0][1]])
 
+        # drop the created allInfo
+        #data.drop("allInfo", axis = 1, inplace = True)
 
         with self.output()[0].open("w") as cleaned_json:
             s = data.to_json(orient = 'records').replace("{", "\n{")
@@ -60,15 +65,29 @@ class ClassifyProducts(luigi.Task):
         return [luigi.LocalTarget("categorised_" + self.filePath)]
 
 
-    def get_categories(self, infos, vectorizer, model):
+    def get_categories(self, row, vectorizer, model):
         classes = model.classes_
-        vect = vectorizer.transform([infos])
+        infos, titleInfo = row["infos"], row["titleInfo"]
+        # first try predict by title Info
+        vect = vectorizer.transform([titleInfo])
         probas = model.predict_proba(vect)[0]
         prob_class = [(probas[x], classes[x]) for x in range(len(probas))]
         prob_class.sort()
         prob_class = prob_class[::-1]
         selected_class = prob_class[0]
-        # if probability of prediction is less then LIMIT_PROBA then it will be classified as other
+        # if probability of prediction by titleInfo is less then LIMIT_PROBA
+        # then we will make prediction based on infos
+        if selected_class[0] < LIMIT_PROBA:
+            vect = vectorizer.transform([infos])
+        else:
+            return [selected_class]
+        
+        probas = model.predict_proba(vect)[0]
+        prob_class = [(probas[x], classes[x]) for x in range(len(probas))]
+        prob_class.sort()
+        prob_class = prob_class[::-1]
+        selected_class = prob_class[0]
+        # if proba of prediction by infos is less then LIMIT_PROBA then categorise = "other"
         if selected_class[0] < LIMIT_PROBA:
             selected_class = (selected_class[0] ,"other")
         return [selected_class]
