@@ -35,7 +35,7 @@ DETAILS INFORMATIONS :
 
 4 - classify_products.py : This file use the trained model in the file "model_classifier.pkl" and predict the catergory of the product and the probability of that prediction, if the probability of the prediction is less then LIMIT_PROBA then the category will be "other", to be classified manually after.
 
-+ Output : it outputs one file, categorised_lapiscineparis.json that contains the products with one class prediction and a probability of that prediction.
++ Output : it outputs one file, categorised_lapiscineparis.json that contains the products with one class prediction and a probability of that prediction, the prediction take into account the prediction of the category based on the infos and the predictions based on the title.
 
 5 - update_model.py : This file use the predicted data to train the model, it selects the products that have a predict probability of more then UPDATE_PROBA and add those data to TRAINING_DATA.json, and then train the model with those data, and save it to model_classifier.pkl
 

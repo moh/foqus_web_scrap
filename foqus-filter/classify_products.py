@@ -23,6 +23,7 @@ from tqdm import tqdm
 tqdm.pandas()
 
 LIMIT_PROBA = 0.4
+INFO_RATIO = 0.7
 
 class ClassifyProducts(luigi.Task):
     filePath = luigi.Parameter()
@@ -68,29 +69,20 @@ class ClassifyProducts(luigi.Task):
     def get_categories(self, row, vectorizer, model):
         classes = model.classes_
         infos, titleInfo = row["infos"], row["titleInfo"]
-        # first try predict by title Info
-        vect = vectorizer.transform([titleInfo])
-        probas = model.predict_proba(vect)[0]
+        vect_titleInfo = vectorizer.transform([titleInfo])
+        vect_info = vectorizer.transform([infos])
+
+        proba_titleInfo = model.predict_proba(vect_titleInfo)[0]
+        proba_info = model.predict_proba(vect_info)[0]
+        probas = proba_titleInfo * (1 - INFO_RATIO) + proba_info * INFO_RATIO
         prob_class = [(probas[x], classes[x]) for x in range(len(probas))]
         prob_class.sort()
         prob_class = prob_class[::-1]
         selected_class = prob_class[0]
-        # if probability of prediction by titleInfo is less then LIMIT_PROBA
-        # then we will make prediction based on infos
-        if selected_class[0] < LIMIT_PROBA:
-            vect = vectorizer.transform([infos])
-        else:
-            return [selected_class]
-        
-        probas = model.predict_proba(vect)[0]
-        prob_class = [(probas[x], classes[x]) for x in range(len(probas))]
-        prob_class.sort()
-        prob_class = prob_class[::-1]
-        selected_class = prob_class[0]
-        # if proba of prediction by infos is less then LIMIT_PROBA then categorise = "other"
         if selected_class[0] < LIMIT_PROBA:
             selected_class = (selected_class[0] ,"other")
         return [selected_class]
+        
 
 if __name__ == "__main__":
     luigi.run()
