@@ -60,12 +60,13 @@ class UpdateModel(luigi.Task):
         train_data_from_infos = data_train_all["infos"].to_list()
         train_data_from_title = data_train_all["titleInfo"].to_list()
         # add the two training data
-        train_data = train_data_from_infos + train_data_from_title
+        # test with training only on infos data
+        train_data = train_data_from_infos# + train_data_from_title
         
         # train tags
         train_tags = data_train_all["categories"].to_list()
         # double train tags for data_from_infos and data_from_title
-        train_tags += train_tags
+        # train_tags += train_tags
 
         print(" --------- INFO to VECTORS ---------")
         vectors = vectorizer.transform(train_data)
