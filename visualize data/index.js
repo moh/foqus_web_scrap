@@ -236,18 +236,20 @@ function saveChange(event){
     var categories = product.getElementsByClassName("productCategory"); // get the category of the product
     var image_srcs = [];
     var new_cat = [];
+    var prob = [];
     for(var x = 0; x < imageDivs.length; x++){
         src = imageDivs[x].getElementsByTagName("img")[0].src;
         image_srcs.push(src);
     }
     for(var x = 0; x < categories.length; x++){
         new_cat.push(categories[x].innerHTML);
+        prob.push(1.0);
     }
     data["images"] = image_srcs;
     data["categories"] = new_cat;
     // if probability is set on this category, then the proba will be equal to 1 after changing manually the category.
     if (data["prob"] != undefined){
-        data["prob"] = 1.0;
+        data["prob"] = prob;
     }
     json_data[index] = data;
     product.getElementsByClassName("saveText")[0].innerHTML = "Product has been saved";

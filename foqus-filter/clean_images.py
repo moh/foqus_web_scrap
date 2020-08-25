@@ -27,6 +27,7 @@ from tqdm import tqdm
 tqdm.pandas()
 
 #pandarallel.initialize(progress_bar = True)
+IMAGES_LIMIT = 5
 
 class CleanImages(luigi.Task):
     filePath = luigi.Parameter()
@@ -47,6 +48,9 @@ class CleanImages(luigi.Task):
         print("\n\n ------------------- CLEANING IMAGES ---------------------")
         data["images"] = data.progress_apply(lambda row : self.cleanImgs(row["urlBase"], row["images"], rep_imgs), axis = 1)
 
+        # select row with len(images) more then 0
+        data = data[data["images"].apply(lambda x : len(x) > 0)]
+
         # for test
         #data["categories"] = "a"
         with self.output()[0].open('w') as cleaned_json:
@@ -64,7 +68,7 @@ class CleanImages(luigi.Task):
             counts = list(Counter(images).values())
             #unique, counts = np.unique(images, return_counts = True)
             # we use set because it is faster to check membership
-            imgRept[x] = set(unique[ind] for ind in range(len(unique)) if counts[ind] > 2)
+            imgRept[x] = set(unique[ind] for ind in range(len(unique)) if counts[ind] > IMAGES_LIMIT)
         return imgRept
 
     def cleanImgs(self,urlBase, images, imgRept):
